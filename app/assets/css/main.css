@@ -1,0 +1,266 @@
+@import "tailwindcss";
+@import "./font.css"; /* open sauce one */
+@import "./animations.css";
+@import "./themes.css";
+
+@theme {
+  --color-bg: #000000;
+  --color-surface: #0c0c0c;
+  --color-surface-2: #111111;
+  --color-border: #1c1c1c;
+  --color-border-2: #252525;
+
+  --color-yes: #26a69a;
+  --color-yes-bg: rgba(38, 166, 154, 0.1);
+  --color-yes-hover: rgba(38, 166, 154, 0.18);
+  --color-no: #ef5350;
+  --color-no-bg: rgba(239, 83, 80, 0.09);
+  --color-no-hover: rgba(239, 83, 80, 0.16);
+
+  --color-text: #e0e0e0;
+  --color-text-2: #888888;
+  --color-text-3: #4a4a4a;
+  --color-white: #f0f0f0;
+  --color-accent: #f0f0f0;
+  --color-accent-hover: #ffffff;
+  --color-accent-fg: #000000;
+
+  --font-sans: "Open Sauce One", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+html {
+  font-size: 16px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a,
+button,
+input,
+select,
+textarea,
+label {
+  touch-action: manipulation;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: "Open Sauce One", sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings:
+    "tnum" 1,
+    "ss01" 1;
+  text-rendering: geometricPrecision;
+}
+
+button {
+  cursor: pointer;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  letter-spacing: 0;
+}
+
+.font-mono {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-2) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-2);
+  border-radius: 2px;
+}
+
+:root {
+  --header-height: 0px;
+  --color-primary: #f0f0f0;
+  --color-primary-hover: #ffffff;
+  --color-primary-glow: rgba(240, 240, 240, 0.07);
+  --color-background: #000000;
+  --color-hover: #111111;
+  --color-card: #0c0c0c;
+  --color-card-hover: #111111;
+  --color-card-secondary: #0c0c0c;
+  --color-secondary: #111111;
+  --color-secondary-hover: #161616;
+  --color-input: #111111;
+  --color-border-hover: #252525;
+  --color-border-soft: rgba(255, 255, 255, 0.035);
+  --color-ring: rgba(240, 240, 240, 0.45);
+
+  --text-primary: #f0f0f0;
+  --text-body: #e0e0e0;
+  --text-secondary: #e0e0e0;
+  --text-description: #a0a0a0;
+  --text-meta: #888888;
+  --text-muted: #4a4a4a;
+
+  --colors-shadeWhite: #000000;
+
+  --neutral-25: #111111;
+  --neutral-50: #0c0c0c;
+  --neutral-100: #111111;
+  --color-neutral-50: var(--color-card);
+  --color-neutral-100: var(--color-card-hover);
+
+  --color-surface-1: var(--color-card);
+  --colors-gray6: var(--color-secondary);
+  --colors-gray6_50: var(--color-secondary-hover);
+  --color-button-secondary-bg: var(--color-secondary);
+  --color-button-secondary-bg-hover: var(--color-secondary-hover);
+  --colors-gray5: var(--color-border);
+  --colors-gray4: #252525;
+
+  --colors-bannerBg: var(--color-secondary);
+
+  --legacy-shade-white: var(--color-background);
+
+  --market-yes: #26a69a;
+  --market-yes-bg: rgba(38, 166, 154, 0.1);
+  --market-yes-bg-hover: rgba(38, 166, 154, 0.18);
+  --market-no: #ef5350;
+  --market-no-bg: rgba(239, 83, 80, 0.09);
+  --market-no-bg-hover: rgba(239, 83, 80, 0.16);
+  --market-warning: #fe9a00;
+}
+
+.pm-page {
+  min-height: 100%;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.pm-container {
+  width: 100%;
+  padding-inline: 20px;
+}
+
+.pm-event-container {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+@media (max-width: 640px) {
+  .pm-container,
+  .pm-event-container {
+    padding-inline: 16px;
+  }
+}
+
+.pm-card {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.pm-panel {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.pm-tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+.pm-focus {
+  outline: none;
+}
+
+.pm-focus:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-ring);
+}
+
+.pm-button {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 6px;
+  padding-inline: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    transform 100ms ease;
+}
+
+.pm-button:active {
+  transform: scale(0.98);
+}
+
+.pm-button--primary {
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+}
+
+.pm-button--primary:hover {
+  background: var(--color-accent-hover);
+}
+
+.pm-button--secondary {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.pm-button--secondary:hover {
+  border-color: var(--color-border-2);
+}
+
+.pm-button--yes {
+  background: var(--color-yes-bg);
+  color: var(--color-yes);
+  border: 1px solid rgba(38, 166, 154, 0.2);
+}
+
+.pm-button--yes:hover {
+  background: var(--color-yes-hover);
+}
+
+.pm-button--no {
+  background: var(--color-no-bg);
+  color: var(--color-no);
+  border: 1px solid rgba(239, 83, 80, 0.15);
+}
+
+.pm-button--no:hover {
+  background: var(--color-no-hover);
+}
+
+.pm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+}
