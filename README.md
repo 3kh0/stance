@@ -14,27 +14,27 @@ You can use Stance in your browser at [stance.lol](https://stance.lol/) or run i
 
 ## Screenshots
 
-![Homepage](https://gist.github.com/user-attachments/assets/30b4a0bc-1c5c-41f1-a9fa-573150c84527)
+<img width="2634" height="1558" alt="image" src="https://github.com/user-attachments/assets/708d2a6a-fb9e-40e7-a19f-7451713013dc" />
 
 Homepage
 
-![Elections](https://gist.github.com/user-attachments/assets/91e97d46-c96c-42a8-84a4-d0cc68aae039)
+<img width="2634" height="1558" alt="image" src="https://github.com/user-attachments/assets/30f0bf54-1645-4fc9-b52f-9586647eb3e0" />
 
 Elections
 
-![Crypto markets](https://gist.github.com/user-attachments/assets/7c9d8f0d-39a7-4d4a-84c3-1d8582253f35)
+<img width="2628" height="1552" alt="image" src="https://github.com/user-attachments/assets/a9b4856c-8d46-41df-bd35-848b30c3fedd" />
 
 Crypto markets
 
-![Bitcoin 5 minute market](https://gist.github.com/user-attachments/assets/4be28937-4332-4cd8-ad7c-0aae33508700)
+<img width="2624" height="1550" alt="image" src="https://github.com/user-attachments/assets/d63ac4d5-5e95-43d7-bfdc-148dcec53bf0" />
 
 Bitcoin 5 minute market
 
-![Counter Strike 2 page](https://gist.github.com/user-attachments/assets/98c81496-965b-4864-9128-34ba83d4830d)
+<img width="2626" height="1548" alt="image" src="https://github.com/user-attachments/assets/2a0e8a42-1c76-41de-945e-c0ac0f41e1e1" />
 
 Counter Strike 2 page
 
-![Live sports page](https://gist.github.com/user-attachments/assets/bc839ac9-4037-4061-afb2-277535b6177b)
+<img width="2626" height="1552" alt="image" src="https://github.com/user-attachments/assets/4954bb23-4770-4a64-9f64-2c5d06ebc1bc" />
 
 Live sports page
 
