@@ -110,11 +110,13 @@ const props = defineProps({
   windowEndMs: { type: Number, default: null },
   defaultRange: { type: String, default: null },
   endLabels: { type: Boolean, default: false },
+  autoRefresh: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["hover-value"]);
 
 const CHART_HEIGHT = 300;
+const AUTO_REFRESH_MS = 15_000;
 const COLORS = ["#2563eb", "#dc2626", "#16a34a", "#9333ea", "#ea580c", "#0891b2", "#db2777", "#ca8a04"];
 const END_LABEL_AREA = { wide: 104, narrow: 76 };
 const Y_AXIS_AREA = 36;
@@ -175,6 +177,9 @@ const UPSTREAM_INTERVALS = new Set(["1h", "6h", "1d", "1w", "1m", "max"]);
 const rangeLabel = computed(() => (fixedWindow.value ? "Market window" : timeRanges.find((r) => r.value === activeRange.value)?.label || ""));
 
 let resizeObserver = null;
+let autoRefreshTimer = null;
+let loadRequestId = 0;
+let mounted = false;
 
 const TAG_HEIGHT = 26;
 const TAG_GAP = 5;
@@ -327,16 +332,27 @@ function rangeQuery(token, interval) {
   return startTs !== undefined && endTs !== undefined ? `&startTs=${startTs}&endTs=${endTs}` : "";
 }
 
-async function loadChartData(interval) {
+async function loadChartData(interval, background = false) {
+  const requestId = ++loadRequestId;
   if (!props.tokens.length) {
     resetChart();
     return;
   }
   loading.value = true;
-  chartError.value = false;
-  clearHover();
+  if (!background) {
+    chartError.value = false;
+    clearHover();
+  }
 
   const results = await Promise.allSettled(props.tokens.map((token) => $fetch(`/api/market/history?tokenId=${encodeURIComponent(token.tokenId)}&interval=${interval}${rangeQuery(token, interval)}`)));
+  if (requestId !== loadRequestId) return;
+
+  const wouldDropExistingSeries = results.some((result, index) => (result.status !== "fulfilled" || !result.value?.history?.length) && seriesData.value[index]?.data.length);
+  if (background && wouldDropExistingSeries) {
+    loading.value = false;
+    return;
+  }
+
   let anySuccess = false;
   const newLastPrices = [];
   const allTimes = new Set();
@@ -379,8 +395,27 @@ async function loadChartData(interval) {
   lastPrices.value = newLastPrices;
   chartError.value = !anySuccess;
   loading.value = false;
-  animationKey.value += 1;
+  if (!background) animationKey.value += 1;
   appendLivePoint(props.livePoint ?? null);
+}
+
+function refreshChartData() {
+  if (!props.autoRefresh || loading.value || document.visibilityState === "hidden") return;
+  void loadChartData(activeRange.value, true);
+}
+
+function startAutoRefresh() {
+  if (!mounted || !props.autoRefresh || autoRefreshTimer) return;
+  autoRefreshTimer = setInterval(refreshChartData, AUTO_REFRESH_MS);
+  document.addEventListener("visibilitychange", refreshChartData);
+  window.addEventListener("focus", refreshChartData);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer = null;
+  document.removeEventListener("visibilitychange", refreshChartData);
+  window.removeEventListener("focus", refreshChartData);
 }
 
 function appendLivePoint(point) {
@@ -459,18 +494,29 @@ watch(
   () => (props.livePoint ? `${props.livePoint.time}:${props.livePoint.value}` : ""),
   () => appendLivePoint(props.livePoint ?? null),
 );
+watch(
+  () => props.autoRefresh,
+  (enabled) => (enabled ? startAutoRefresh() : stopAutoRefresh()),
+);
 
 onMounted(async () => {
+  mounted = true;
   if (!chartContainer.value) return;
   chartWidth.value = chartContainer.value.clientWidth || 0;
   resizeObserver = new ResizeObserver((entries) => {
     chartWidth.value = entries[0]?.contentRect.width || chartContainer.value?.clientWidth || 0;
   });
   resizeObserver.observe(chartContainer.value);
+  startAutoRefresh();
   await loadChartData(activeRange.value);
 });
 
-onUnmounted(() => resizeObserver?.disconnect());
+onUnmounted(() => {
+  mounted = false;
+  loadRequestId += 1;
+  stopAutoRefresh();
+  resizeObserver?.disconnect();
+});
 </script>
 
 <style scoped>

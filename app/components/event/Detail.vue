@@ -51,7 +51,16 @@
             />
             <template v-else>
               <Transition name="market-tab" mode="out-in">
-                <PriceChart v-if="chartMode === 'simple'" key="line" :tokens="chartTokens" :outcome-title="isSingle ? 'Yes' : undefined" :default-range="isSports && (sportsMatchup?.live || sportsMatchup?.ended) ? '3h' : undefined" :end-labels="isSports" @hover-value="chartHovered = $event">
+                <PriceChart
+                  v-if="chartMode === 'simple'"
+                  key="line"
+                  :tokens="chartTokens"
+                  :outcome-title="isSingle ? 'Yes' : undefined"
+                  :default-range="isSports && (sportsMatchup?.live || sportsMatchup?.ended) ? '3h' : undefined"
+                  :end-labels="isSports"
+                  :auto-refresh="isSports && !isClosed && sportsMatchup?.ended !== true"
+                  @hover-value="chartHovered = $event"
+                >
                   <template #controls>
                     <div class="flex items-center gap-3">
                       <ChartSeriesPicker v-if="allChartTokens.length > 1" :options="chartPickerOptions" :selected-ids="chartTokenIds" @toggle="toggleChartToken" />
