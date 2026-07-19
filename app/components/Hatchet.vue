@@ -115,6 +115,14 @@
           </div>
         </div>
 
+        <label class="flex cursor-pointer items-start gap-2">
+          <input v-model="postOnly" type="checkbox" class="pm-focus mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer accent-yes" />
+          <span class="flex min-w-0 flex-col gap-0.5">
+            <span class="text-[11px] font-semibold leading-4 text-text">Post only</span>
+            <span class="text-[10.5px] leading-relaxed text-text-3">When enabled, a limit order that would fill immediately is rejected so it always rests on the book as a maker order.</span>
+          </span>
+        </label>
+
         <div v-if="matchingShares > 0" class="inline-flex h-6 w-fit items-center rounded-sm border border-yes/30 bg-yes-bg px-2">
           <span class="font-mono text-[11px] font-bold tabular-nums text-yes">{{ fmts(matchingShares) }}</span>
           <span class="ml-1.5 text-[9px] font-bold uppercase tracking-widest text-yes">matching</span>
@@ -134,9 +142,10 @@
           <span class="text-[11px] text-text-2">{{ orderMode === "limit" ? "Total" : "Amount" }}</span>
           <span class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="orderCost" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" /></span>
         </div>
-        <div v-if="feeUsd > 0" class="flex items-center justify-between">
+        <div v-if="feeUsd > 0 || (orderMode === 'limit' && !feeIsTaker)" class="flex items-center justify-between">
           <span class="text-[11px] text-text-2">Est. fee</span>
-          <span class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="feeUsd" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" /></span>
+          <span v-if="feeUsd > 0" class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="feeUsd" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" /></span>
+          <span v-else class="text-[11px] font-semibold text-text-3">No fee (maker)</span>
         </div>
         <div class="flex items-center justify-between">
           <span class="text-[11px] text-text-2">{{ orderType === "buy" ? "To win" : "You'll receive" }}</span>
@@ -176,6 +185,7 @@
             <span class="text-[10px] font-bold uppercase tracking-widest" :class="orderType === 'buy' ? 'text-yes' : 'text-no'">{{ orderType }}</span>
             <span class="text-[10px] font-bold uppercase tracking-widest" :class="selectedOutcome === 'yes' ? 'text-yes' : 'text-no'" :style="sideTextStyle(selectedOutcome)">{{ selectedOutcomeLabel }}</span>
             <span v-if="confirmedMode === 'limit'" class="rounded-sm border border-border-2 px-1 text-[9px] font-bold uppercase tracking-widest leading-4 text-text-2">Limit</span>
+            <span v-if="confirmedMode === 'limit' && confirmedPostOnly" class="rounded-sm border border-border-2 px-1 text-[9px] font-bold uppercase tracking-widest leading-4 text-text-2">Post only</span>
           </div>
         </div>
 
@@ -318,6 +328,7 @@ const selectedOutcome = ref<Outcome>("yes");
 const amount = ref(100);
 const limitPriceCents = ref(0);
 const limitShares = ref(0);
+const postOnly = ref(false);
 const bookSelection = ref<BookLevelSelection | null>(null);
 const placedNotice = ref<string | null>(null);
 const showConfirmation = ref(false);
@@ -335,6 +346,7 @@ const confirmedShares = ref(0);
 const confirmedMode = ref<"market" | "limit">("market");
 const confirmedFee = ref(0);
 const confirmedMarketable = ref(true);
+const confirmedPostOnly = ref(false);
 const confirmedFillPriceCents = ref(0);
 const previewSnapshot = ref<TradePreviewSnapshot>({ amount: 0, priceCents: 0, shares: 0 });
 
@@ -435,19 +447,16 @@ const orderCost = computed(() => {
 
 const feeInfo = ref<ClobFeeInfo>({ rate: 0, exponent: 0 });
 watch(
-  [() => props.conditionId, isLiveAccount],
-  async ([conditionId, live]) => {
+  () => props.conditionId,
+  async (conditionId) => {
     feeInfo.value = { rate: 0, exponent: 0 };
-    if (!live || !conditionId) return;
+    if (!conditionId) return;
     try {
       feeInfo.value = await getFeeInfo(conditionId);
     } catch {}
   },
   { immediate: true },
 );
-
-const feeUsd = computed(() => (!isLiveAccount.value ? 0 : clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, summaryPriceCents.value / 100, summaryShares.value)));
-const payoutNumber = computed(() => (orderType.value === "buy" ? summaryShares.value : Math.max(orderCost.value - feeUsd.value, 0)));
 const positionMarketId = computed(() => (isLiveAccount.value ? props.conditionId || "" : props.marketId));
 const userPosition = computed(() => (!positionMarketId.value ? null : account.value.positions.find((p) => p.positionKey === positionKey(positionMarketId.value, selectedOutcome.value))));
 const sellableShares = computed(() => {
@@ -479,12 +488,17 @@ const matchingShares = computed(() => {
 });
 const marketableFillPriceCents = computed(() => (orderType.value === "buy" ? Math.min(props.bestAskCents ?? limitPriceCents.value, limitPriceCents.value) : Math.max(props.bestBidCents ?? limitPriceCents.value, limitPriceCents.value)));
 
+const feeIsTaker = computed(() => (orderMode.value === "market" ? true : isMarketableLimit.value && !postOnly.value));
+const feeUsd = computed(() => (!feeIsTaker.value ? 0 : clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, (orderMode.value === "limit" ? marketableFillPriceCents.value : summaryPriceCents.value) / 100, summaryShares.value)));
+const payoutNumber = computed(() => (orderType.value === "buy" ? summaryShares.value : Math.max(orderCost.value - feeUsd.value, 0)));
+
 const orderError = computed<string | null>(() => {
   if (!props.marketId) return "Market unavailable";
   if (isLiveAccount.value && !liveTradingReady.value) return "Live trading unavailable for this market";
   if (orderMode.value === "limit") {
     if (!(limitPriceCents.value > 0) || limitPriceCents.value >= 100) return "Enter a limit price";
     if (limitShares.value <= 0) return "Enter shares";
+    if (postOnly.value && isMarketableLimit.value) return "Post only: order would fill immediately";
     if (orderType.value === "buy") return orderCost.value + feeUsd.value > account.value.balance ? "Not enough balance" : null;
     if (limitShares.value > sellableShares.value + SHARE_EPSILON) return sellableShares.value > 0 ? "Not enough uncommitted shares" : "No position to sell";
     return null;
@@ -526,7 +540,7 @@ function setMaxAmount() {
     amount.value = sellableShares.value;
     return;
   }
-  if (!isLiveAccount.value || feeInfo.value.rate <= 0 || currentPrice.value <= 0) {
+  if (feeInfo.value.rate <= 0 || currentPrice.value <= 0) {
     amount.value = account.value.balance;
     return;
   }
@@ -558,9 +572,10 @@ function setMaxLimitShares() {
   }
   const price = limitPriceCents.value / 100;
   if (price <= 0) return;
-  const perShareFee = clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, price, 100) / 100;
-  let max = Math.floor((account.value.balance / (price + (isLiveAccount.value ? perShareFee : 0))) * 100) / 100;
-  if (limitOrderCost(limitPriceCents.value, max) + clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, price, max) > account.value.balance) max = Math.max(max - 0.01, 0);
+  const taker = isMarketableLimit.value && !postOnly.value;
+  const perShareFee = taker ? clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, price, 100) / 100 : 0;
+  let max = Math.floor((account.value.balance / (price + perShareFee)) * 100) / 100;
+  if (limitOrderCost(limitPriceCents.value, max) + (taker ? clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, price, max) : 0) > account.value.balance) max = Math.max(max - 0.01, 0);
   limitShares.value = max;
 }
 
@@ -590,11 +605,13 @@ function openConfirmation() {
     previewSnapshot.value = { amount: orderCost.value, priceCents: limitPriceCents.value, shares: limitShares.value };
     confirmedMode.value = "limit";
     confirmedMarketable.value = isMarketableLimit.value;
+    confirmedPostOnly.value = postOnly.value;
     confirmedFillPriceCents.value = marketableFillPriceCents.value;
   } else {
     previewSnapshot.value = orderType.value === "sell" ? createTradePreviewSnapshotFromShares(shares.value, currentPrice.value) : createTradePreviewSnapshot(amount.value, currentPrice.value);
     confirmedMode.value = "market";
     confirmedMarketable.value = true;
+    confirmedPostOnly.value = false;
     confirmedFillPriceCents.value = previewSnapshot.value.priceCents;
   }
   confirmedPrice.value = previewSnapshot.value.priceCents;
@@ -646,7 +663,9 @@ const { executeOrder } = useHatchetExecution({
   tickCents,
   confirmedMode,
   confirmedMarketable,
+  confirmedPostOnly,
   confirmedFillPriceCents,
+  feeInfo,
   previewSnapshot,
   isExecuting,
   liveError,

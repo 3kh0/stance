@@ -1,7 +1,8 @@
 import type { Outcome, OrderSide } from "~/types/account";
 import confetti from "canvas-confetti";
 import type { Ref } from "vue";
-import { limitOrderCost, type TradePreviewSnapshot } from "~/utils/markets";
+import type { ClobFeeInfo } from "~/composables/usePolymarket";
+import { clobFeeUsd, limitOrderCost, type TradePreviewSnapshot } from "~/utils/markets";
 
 interface HatchetMarketProps {
   marketId: string;
@@ -35,7 +36,9 @@ export function useHatchetExecution(o: {
   tickCents: Ref<number>;
   confirmedMode: Ref<"market" | "limit">;
   confirmedMarketable: Ref<boolean>;
+  confirmedPostOnly: Ref<boolean>;
   confirmedFillPriceCents: Ref<number>;
+  feeInfo: Ref<ClobFeeInfo>;
   previewSnapshot: Ref<TradePreviewSnapshot>;
   isExecuting: Ref<boolean>;
   liveError: Ref<string | null>;
@@ -73,24 +76,27 @@ export function useHatchetExecution(o: {
     o.emit("trade", { type, outcome: o.selectedOutcome.value, amount, shares, price, marketId: p.marketId, marketName: p.marketTitle });
   }
 
-  function recordAndEmit(type: OrderSide, shares: number, price: number, amount: number, ledgerMarketId?: string) {
-    o.addTransaction({ type, marketId: ledgerMarketId, marketName: p.marketQuestion || p.marketTitle, marketIcon: p.marketIcon, outcome: o.selectedOutcome.value, shares, price, amount });
+  function recordAndEmit(type: OrderSide, shares: number, price: number, amount: number, ledgerMarketId?: string, fee?: number) {
+    o.addTransaction({ type, marketId: ledgerMarketId, marketName: p.marketQuestion || p.marketTitle, marketIcon: p.marketIcon, outcome: o.selectedOutcome.value, shares, price, amount, ...(fee && fee > 0 ? { fee } : {}) });
     emitTrade(type, shares, price, amount);
   }
+
+  const takerFee = (priceDollars: number, shares: number) => clobFeeUsd(o.feeInfo.value.rate, o.feeInfo.value.exponent, priceDollars, shares);
 
   function handleTrade(s: TradePreviewSnapshot) {
     if (!p.marketId || s.priceCents <= 0 || s.amount <= 0 || s.shares <= 0) return false;
     const price = s.priceCents / 100;
 
     if (o.orderType.value === "buy") {
-      if (o.account.value.balance < s.amount) return false;
+      const fee = takerFee(price, s.shares);
+      if (o.account.value.balance < s.amount + fee) return false;
       o.createOrUpdatePosition(p.marketId, p.marketTitle, o.selectedOutcome.value, s.shares, price, details());
-      o.saveAccount({ balance: o.account.value.balance - s.amount });
-      recordAndEmit("buy", s.shares, price, s.amount, p.marketSlug || p.marketId);
+      o.saveAccount({ balance: Math.round((o.account.value.balance - s.amount - fee) * 100) / 100 });
+      recordAndEmit("buy", s.shares, price, s.amount, p.marketSlug || p.marketId, fee);
       return true;
     }
 
-    const tx = o.sellPosition(p.marketId, o.selectedOutcome.value, s.shares, price, { marketName: p.marketTitle, ...details() });
+    const tx = o.sellPosition(p.marketId, o.selectedOutcome.value, s.shares, price, { marketName: p.marketTitle, feeUsd: takerFee(price, s.shares), ...details() });
     if (!tx) return false;
     emitTrade("sell", tx.shares || s.shares, price, tx.amount || s.amount);
     return true;
@@ -110,7 +116,7 @@ export function useHatchetExecution(o: {
     const tokenID = liveTokenID();
     if (!tokenID || !p.conditionId) throw new Error("Live trading unavailable for this market");
     if (s.priceCents <= 0 || s.shares <= 0) throw new Error("Invalid order");
-    const response = await o.placeLiveLimitOrder({ tokenID, side: o.orderType.value, price: s.priceCents / 100, size: s.shares, tickSize: p.tickSize, negRisk: p.negRisk });
+    const response = await o.placeLiveLimitOrder({ tokenID, side: o.orderType.value, price: s.priceCents / 100, size: s.shares, tickSize: p.tickSize, negRisk: p.negRisk, postOnly: o.confirmedPostOnly.value });
     const matched = response?.status === "matched";
     if (matched) recordAndEmit(o.orderType.value, s.shares, s.priceCents / 100, s.amount, p.marketSlug || p.conditionId);
     await o.syncLiveAccount().catch(() => {});
@@ -124,18 +130,20 @@ export function useHatchetExecution(o: {
     const d = details();
 
     if (o.confirmedMarketable.value) {
+      if (o.confirmedPostOnly.value) throw new Error("Post-only order would fill immediately and was rejected");
       if (o.orderType.value === "buy") {
         const fill = Math.min(Math.max(o.confirmedFillPriceCents.value, o.tickCents.value), s.priceCents) / 100;
         const cost = limitOrderCost(fill * 100, s.shares);
-        if (cost > o.account.value.balance) throw new Error("Not enough balance");
+        const fee = takerFee(fill, s.shares);
+        if (cost + fee > o.account.value.balance) throw new Error("Not enough balance");
         o.createOrUpdatePosition(p.marketId, p.marketTitle, o.selectedOutcome.value, s.shares, fill, d);
-        o.saveAccount({ balance: Math.round((o.account.value.balance - cost) * 100) / 100 });
-        recordAndEmit("buy", s.shares, fill, cost, p.marketSlug || p.marketId);
+        o.saveAccount({ balance: Math.round((o.account.value.balance - cost - fee) * 100) / 100 });
+        recordAndEmit("buy", s.shares, fill, cost, p.marketSlug || p.marketId, fee);
         return false;
       }
 
       const fill = Math.max(o.confirmedFillPriceCents.value, s.priceCents) / 100;
-      const tx = o.sellPosition(p.marketId, o.selectedOutcome.value, s.shares, fill, { marketName: p.marketTitle, ...d });
+      const tx = o.sellPosition(p.marketId, o.selectedOutcome.value, s.shares, fill, { marketName: p.marketTitle, feeUsd: takerFee(fill, s.shares), ...d });
       if (!tx) throw new Error("No position to sell");
       emitTrade("sell", tx.shares || s.shares, fill, tx.amount || s.amount);
       return false;

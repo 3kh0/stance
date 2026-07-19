@@ -32,6 +32,7 @@ export interface Transaction {
   shares?: number;
   price?: number;
   amount?: number;
+  fee?: number;
   timestamp: number;
 }
 export interface OpenOrder {

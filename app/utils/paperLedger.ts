@@ -56,7 +56,7 @@ export function createPaperLedger({ getCurrent, persist }: PaperLedgerDeps) {
     persist();
   };
 
-  const sellPosition = (marketId: string, outcome: Outcome, sharesToSell: number, price: number, details?: PositionDetails & { marketName?: string }) => {
+  const sellPosition = (marketId: string, outcome: Outcome, sharesToSell: number, price: number, details?: PositionDetails & { marketName?: string; feeUsd?: number }) => {
     const cur = paper();
     if (!cur) return null;
     const key = positionKey(marketId, outcome);
@@ -78,6 +78,7 @@ export function createPaperLedger({ getCurrent, persist }: PaperLedgerDeps) {
       p.currentPrice = price;
     }
 
+    const fee = Number.isFinite(details?.feeUsd) && details!.feeUsd! > 0 ? Math.min(roundToCents(details!.feeUsd!), amount) : 0;
     const tx = buildTx({
       type: "sell",
       marketId: details?.marketSlug || p.marketSlug || marketId,
@@ -88,8 +89,9 @@ export function createPaperLedger({ getCurrent, persist }: PaperLedgerDeps) {
       shares: settled,
       price,
       amount,
+      ...(fee > 0 ? { fee } : {}),
     });
-    cur.balance = roundToCents(cur.balance + amount);
+    cur.balance = roundToCents(cur.balance + amount - fee);
     cur.transactions.push(tx);
     persist();
     return tx;

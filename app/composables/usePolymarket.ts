@@ -31,6 +31,7 @@ export interface LiveLimitOrderRequest {
   size: number;
   tickSize?: number;
   negRisk?: boolean;
+  postOnly?: boolean;
 }
 
 export interface LiveOpenOrder {
@@ -301,7 +302,7 @@ export const usePolymarket = () => {
     if (!Number.isFinite(request.price) || request.price <= 0 || request.price >= 1) throw new Error("Invalid limit price.");
     if (!Number.isFinite(request.size) || request.size <= 0) throw new Error("Invalid order size.");
     const [client, { Side, OrderType }] = await Promise.all([buildClient(), import("@polymarket/clob-client-v2")]);
-    const response = await client.createAndPostOrder({ tokenID: request.tokenID, price: request.price, size: request.size, side: request.side === "buy" ? Side.BUY : Side.SELL, userUSDCBalance: usdcBalance(request.side) }, clobOrderOptions(request.tickSize, request.negRisk), OrderType.GTC);
+    const response = await client.createAndPostOrder({ tokenID: request.tokenID, price: request.price, size: request.size, side: request.side === "buy" ? Side.BUY : Side.SELL, userUSDCBalance: usdcBalance(request.side) }, clobOrderOptions(request.tickSize, request.negRisk), OrderType.GTC, request.postOnly ?? false);
     throwIfError(response, "Order was rejected by the exchange.");
     return response as { orderID?: string; status?: string };
   };
