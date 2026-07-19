@@ -13,7 +13,7 @@ export const buildAsks = (rows: OrderbookEntry[] | undefined): OrderbookLevel[] 
 
 export const buildBids = (rows: OrderbookEntry[] | undefined): OrderbookLevel[] => withDepth(parseRows(rows), false);
 
-export const TICK_TENTHS = [1, 2, 5, 10, 20, 50] as const;
+export const TICK_TENTHS = [1, 2, 2.5, 5, 10, 20, 50] as const;
 
 export const tickLabel = (tenths: number): string => `${tenths / 10}¢`;
 

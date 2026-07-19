@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccount, type Transaction } from "~/composables/useAccount";
 import { formatRelativeTime, transactionAmount } from "~/utils/markets";
+import { centsDecimals } from "~/utils/prices";
 
 const { account } = useAccount();
 const LinkOrDiv = resolveComponent("NuxtLink");
@@ -39,7 +40,7 @@ const isTrade = (t: Transaction) => t.outcome !== undefined && TRADE.has(t.type)
             <span v-if="isTrade(transaction)" class="mt-0.5 flex items-center gap-1.5">
               <span class="font-mono rounded-sm px-1.5 text-[10px] font-semibold leading-4" :class="transaction.outcome === 'yes' ? 'bg-yes-bg text-yes' : 'bg-no-bg text-no'">
                 {{ transaction.outcome === "yes" ? "Yes" : "No" }}
-                <NumericOdometer :value="transaction.price ? transaction.price * 100 : 0" :maximum-fraction-digits="1" suffix="¢" />
+                <NumericOdometer :value="transaction.price ? transaction.price * 100 : 0" :maximum-fraction-digits="centsDecimals(transaction.price ? transaction.price * 100 : 0)" suffix="¢" />
               </span>
               <span class="font-mono text-[10.5px] leading-4 text-text-3"><NumericOdometer :value="transaction.shares || 0" :maximum-fraction-digits="2" /> sh</span>
             </span>

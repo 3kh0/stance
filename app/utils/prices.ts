@@ -33,12 +33,24 @@ export const proba = (pct: number, neutral = "text-text"): string => (pct >= 55 
 
 export const probb = (pct: number): string => (pct >= 50 ? "bg-yes" : "bg-no");
 
+export function centsDecimals(cents: number): number {
+  const h = Math.round((cents || 0) * 100);
+  if (h % 10 !== 0) return 2;
+  if (h % 100 !== 0) return 1;
+  return 0;
+}
+
+export function tickDecimals(tickCents: number): number {
+  if (!Number.isFinite(tickCents) || tickCents <= 0) return 0;
+  return centsDecimals(tickCents);
+}
+
 export const decimalcent = (levels: Array<{ price: number }>): number => {
   let precision = 0;
   for (const l of levels) {
-    const h = Math.round(l.price * 10000);
-    if (h % 10 !== 0) return 2;
-    if (h % 100 !== 0) precision = 1;
+    const d = centsDecimals(l.price * 100);
+    if (d === 2) return 2;
+    if (d === 1) precision = 1;
   }
   return precision;
 };

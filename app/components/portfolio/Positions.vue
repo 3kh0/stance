@@ -2,6 +2,7 @@
 import type { Position } from "~/composables/useAccount";
 import type { GammaMarket } from "~/types/gamma";
 import { parseOutcomePrices, positionCost, positionCurrentValue, positionPnl, positionPnlPercent } from "~/utils/markets";
+import { centsDecimals } from "~/utils/prices";
 
 interface PortfolioMarketRefresh {
   markets: Array<Pick<GammaMarket, "id" | "conditionId" | "question" | "icon" | "outcomePrices" | "events"> & { eventSlug?: string }>;
@@ -241,9 +242,9 @@ async function confirmExit(shares: number) {
             </component>
           </div>
           <div class="font-mono whitespace-nowrap text-xs font-semibold text-text" role="cell">
-            <NumericOdometer :value="row.avgCents" :maximum-fraction-digits="1" suffix="¢" />
+            <NumericOdometer :value="row.avgCents" :maximum-fraction-digits="centsDecimals(row.avgCents)" suffix="¢" />
             <span class="mx-0.5 font-normal text-text-3">→</span>
-            <NumericOdometer :value="row.currentCents" :maximum-fraction-digits="1" suffix="¢" />
+            <NumericOdometer :value="row.currentCents" :maximum-fraction-digits="centsDecimals(row.currentCents)" suffix="¢" />
           </div>
           <div class="font-mono whitespace-nowrap text-right text-xs text-text-2" role="cell">
             <NumericOdometer :value="row.cost" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" />
@@ -283,7 +284,9 @@ async function confirmExit(shares: number) {
           <div class="mt-2 flex items-center gap-2">
             <span class="font-mono rounded-sm px-1.5 text-[10px] font-semibold leading-4.5" :class="row.position.outcome === 'yes' ? 'bg-yes-bg text-yes' : 'bg-no-bg text-no'">{{ row.position.outcome === "yes" ? "Yes" : "No" }}</span>
             <span class="font-mono text-[10.5px] text-text-3"><NumericOdometer :value="row.position.shares" :maximum-fraction-digits="2" /> sh</span>
-            <span class="font-mono whitespace-nowrap text-[10.5px] text-text-2"><NumericOdometer :value="row.avgCents" :maximum-fraction-digits="1" suffix="¢" /><span class="mx-0.5 text-text-3">→</span><NumericOdometer :value="row.currentCents" :maximum-fraction-digits="1" suffix="¢" /></span>
+            <span class="font-mono whitespace-nowrap text-[10.5px] text-text-2"
+              ><NumericOdometer :value="row.avgCents" :maximum-fraction-digits="centsDecimals(row.avgCents)" suffix="¢" /><span class="mx-0.5 text-text-3">→</span><NumericOdometer :value="row.currentCents" :maximum-fraction-digits="centsDecimals(row.currentCents)" suffix="¢"
+            /></span>
             <span v-if="row.stale" class="rounded-sm border border-[rgba(254,154,0,0.25)] bg-[rgba(254,154,0,0.08)] px-1.5 text-[9px] font-bold uppercase tracking-widest leading-4 text-(--market-warning)">Stale</span>
             <button class="pm-focus ml-auto h-7.5 rounded-md border border-no/15 bg-no-bg px-3.5 text-xs font-semibold text-no transition-colors duration-150 hover:bg-no-hover disabled:cursor-not-allowed disabled:opacity-40" type="button" :disabled="row.value <= 0" @click="openExit(row.position)">Sell</button>
           </div>

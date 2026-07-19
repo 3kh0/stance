@@ -3,8 +3,8 @@ import type { Outcome, OrderSide } from "~/types/account";
 import EventSportsLineSlider from "~/components/event/SportsLineSlider.vue";
 import type { EventTeam, GammaMarket, OrderbookLevel } from "~/types/gamma";
 import { chancePct, parseOutcomePrices } from "~/utils/markets";
-import { snapDisplayPrice } from "~/utils/quotes";
-import { fmtcp, fmtcn, fmtn } from "~/utils/prices";
+import { marketTickCents, snapDisplayPrice } from "~/utils/quotes";
+import { fmtcp, fmtcn, fmtn, tickDecimals } from "~/utils/prices";
 import { marketAtLine, parseMarketOutcomes, sportsDisplayPrice, sportsMarketSideColors, sportsOutcomeColor, sportsOutcomeLabels, sportsSliderLines, sportsSliderValue, teamAbbreviation, type SportsMarketGroup, type SportsMarketTab } from "~/utils/sports";
 import type { BookLevelSelection } from "~/utils/markets";
 
@@ -75,7 +75,8 @@ const livePrice = (m: GammaMarket, side: Outcome) => props.livePrices?.[m.id]?.[
 const sidePrice = (m: GammaMarket, side: Outcome) => livePrice(m, side) ?? (props.isSportsEvent ? sportsDisplayPrice(m, side) : null) ?? snapDisplayPrice(parseOutcomePrices(m)[side], m);
 const yesPrice = (m: GammaMarket) => sidePrice(m, "yes");
 const noPrice = (m: GammaMarket) => sidePrice(m, "no");
-const priceCents = (price: number) => Math.round(price * 1000) / 10;
+const priceCents = (price: number) => Math.round(price * 10000) / 100;
+const marketDecimals = (m: GammaMarket) => Math.max(1, tickDecimals(marketTickCents(m)));
 
 const groupVolume = (group: SportsMarketGroup<MarketWithPrice>) => group.markets.reduce((sum, m) => sum + Number(m.volumeNum ?? m.volume ?? 0), 0);
 
@@ -154,7 +155,7 @@ const activeLineForGroup = (g: SportsMarketGroup<MarketWithPrice>, m: MarketWith
                 @click="emit('select-market-and-outcome', outcome.market, 'yes')"
               >
                 <span class="font-sans font-bold">{{ outcome.abbrev }}</span>
-                <NumericOdometer :value="priceCents(outcome.price)" :maximum-fraction-digits="1" suffix="¢" />
+                <NumericOdometer :value="priceCents(outcome.price)" :maximum-fraction-digits="marketDecimals(outcome.market)" suffix="¢" />
               </button>
             </div>
 
@@ -166,7 +167,7 @@ const activeLineForGroup = (g: SportsMarketGroup<MarketWithPrice>, m: MarketWith
                 @click="emit('select-market-and-outcome', market, 'yes')"
               >
                 <span class="truncate font-sans font-bold" :title="sportsOutcomeLabels(market, teams)[0]">{{ sportsOutcomeLabels(market, teams)[0] }}</span>
-                <NumericOdometer class="shrink-0" :value="priceCents(yesPrice(market))" :maximum-fraction-digits="1" suffix="¢" />
+                <NumericOdometer class="shrink-0" :value="priceCents(yesPrice(market))" :maximum-fraction-digits="marketDecimals(market)" suffix="¢" />
               </button>
               <button
                 class="pm-focus font-mono flex h-11 min-w-0 items-center justify-between gap-2 rounded-md border px-3 text-xs font-semibold transition-[background-color,border-color,filter] duration-150"
@@ -175,7 +176,7 @@ const activeLineForGroup = (g: SportsMarketGroup<MarketWithPrice>, m: MarketWith
                 @click="emit('select-market-and-outcome', market, 'no')"
               >
                 <span class="truncate font-sans font-bold" :title="sportsOutcomeLabels(market, teams)[1]">{{ sportsOutcomeLabels(market, teams)[1] }}</span>
-                <NumericOdometer class="shrink-0" :value="priceCents(noPrice(market))" :maximum-fraction-digits="1" suffix="¢" />
+                <NumericOdometer class="shrink-0" :value="priceCents(noPrice(market))" :maximum-fraction-digits="marketDecimals(market)" suffix="¢" />
               </button>
             </div>
           </div>

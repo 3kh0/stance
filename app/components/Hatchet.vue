@@ -6,7 +6,7 @@
         <div class="truncate text-[12.5px] font-semibold leading-tight text-white">{{ marketTitle }}</div>
         <div class="mt-0.5 flex items-center gap-1.5">
           <span class="truncate text-[10px] font-bold uppercase tracking-widest" :class="selectedOutcome === 'yes' ? 'text-yes' : 'text-no'" :style="sideTextStyle(selectedOutcome)">{{ selectedOutcomeLabel }}</span>
-          <span class="font-mono text-[11px] leading-none text-text-2"><NumericOdometer :value="currentPrice" suffix="¢" /></span>
+          <span class="font-mono text-[11px] leading-none text-text-2"><NumericOdometer :value="currentPrice" suffix="¢" :maximum-fraction-digits="priceDecimals" /></span>
         </div>
       </div>
       <span v-if="isLiveAccount" class="shrink-0 rounded-sm border border-border-2 bg-surface-2 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest leading-4 text-white" title="Orders on this account trade real funds on Polymarket">Live</span>
@@ -44,7 +44,7 @@
             @click="selectOutcome('yes')"
           >
             <span class="truncate pr-2 text-xs font-bold" :title="yesLabel">{{ yesLabel }}</span>
-            <span class="font-mono text-xs font-semibold"><NumericOdometer :value="yesPrice" suffix="¢" /></span>
+            <span class="font-mono text-xs font-semibold"><NumericOdometer :value="yesPrice" suffix="¢" :maximum-fraction-digits="priceDecimals" /></span>
           </button>
           <button
             class="pm-focus flex h-10 items-center justify-between rounded-md border px-3 transition-colors duration-150 active:scale-[0.98]"
@@ -53,7 +53,7 @@
             @click="selectOutcome('no')"
           >
             <span class="truncate pr-2 text-xs font-bold" :title="noLabel">{{ noLabel }}</span>
-            <span class="font-mono text-xs font-semibold"><NumericOdometer :value="noPrice" suffix="¢" /></span>
+            <span class="font-mono text-xs font-semibold"><NumericOdometer :value="noPrice" suffix="¢" :maximum-fraction-digits="priceDecimals" /></span>
           </button>
         </div>
       </div>
@@ -132,7 +132,7 @@
       <div class="flex flex-col gap-1.5 border-t border-border pt-3">
         <div class="flex items-center justify-between">
           <span class="text-[11px] text-text-2">{{ orderMode === "market" ? "Avg price" : "Limit price" }}</span>
-          <span class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="summaryPriceCents" suffix="¢" :maximum-fraction-digits="1" /></span>
+          <span class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="summaryPriceCents" suffix="¢" :maximum-fraction-digits="priceDecimals" /></span>
         </div>
         <div class="flex items-center justify-between">
           <span class="text-[11px] text-text-2">{{ orderMode === "market" && orderType === "buy" ? "Est. shares" : "Shares" }}</span>
@@ -192,7 +192,7 @@
         <div class="mb-4 flex flex-col gap-2 rounded-md border border-border bg-surface-2 p-3">
           <div class="flex items-center justify-between">
             <span class="text-[11px] text-text-2">{{ confirmedMode === "limit" ? "Limit price" : "Avg price" }}</span>
-            <span class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="confirmedPrice" suffix="¢" :maximum-fraction-digits="1" /></span>
+            <span class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="confirmedPrice" suffix="¢" :maximum-fraction-digits="priceDecimals" /></span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-[11px] text-text-2">Shares</span>
@@ -253,7 +253,7 @@ import type { Outcome, OrderSide } from "~/types/account";
 import type { ClobFeeInfo } from "~/composables/usePolymarket";
 import { useHatchetExecution } from "~/composables/useHatchetExecution";
 import { SHARE_EPSILON } from "~/utils/constants";
-import { fmts } from "~/utils/prices";
+import { fmts, tickDecimals } from "~/utils/prices";
 import { calculateMaxSellAmount, calculateShares, clampLimitPriceCents, clobFeeUsd, createTradePreviewSnapshot, createTradePreviewSnapshotFromShares, limitOrderCost, positionKey, type BookLevelSelection, type TradePreviewSnapshot } from "~/utils/markets";
 
 interface Props {
@@ -437,6 +437,7 @@ const tickCents = computed(() => {
   const t = props.tickSize;
   return t && [0.1, 0.01, 0.005, 0.0025, 0.001, 0.0001].includes(t) ? t * 100 : 1;
 });
+const priceDecimals = computed(() => Math.max(1, tickDecimals(tickCents.value)));
 
 const summaryPriceCents = computed(() => (orderMode.value === "market" ? currentPrice.value : limitPriceCents.value));
 const summaryShares = computed(() => (orderMode.value === "market" ? shares.value : limitShares.value));

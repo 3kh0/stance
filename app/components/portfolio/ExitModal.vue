@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Position } from "~/composables/useAccount";
 import { positionCurrentValue } from "~/utils/markets";
-import { fmtm } from "~/utils/prices";
+import { centsDecimals, fmtm } from "~/utils/prices";
 
 const props = withDefaults(
   defineProps<{
@@ -53,7 +53,7 @@ const confirmExit = () => {
         <span>Receive</span>
         <strong><NumericOdometer :value="receiveAmount" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" /></strong>
       </div>
-      <p class="portfolio-exit__meta">Selling <NumericOdometer :value="sharesToSell" :maximum-fraction-digits="2" /> of <NumericOdometer :value="position.shares" :maximum-fraction-digits="2" /> shares @ <NumericOdometer :value="priceCents" :maximum-fraction-digits="1" />c</p>
+      <p class="portfolio-exit__meta">Selling <NumericOdometer :value="sharesToSell" :maximum-fraction-digits="2" /> of <NumericOdometer :value="position.shares" :maximum-fraction-digits="2" /> shares @ <NumericOdometer :value="priceCents" :maximum-fraction-digits="centsDecimals(priceCents)" />c</p>
       <div class="portfolio-exit__slider">
         <input v-model.number="percent" class="pm-focus" type="range" min="0" max="100" step="25" aria-label="Percent of position to sell" />
         <div class="portfolio-exit__ticks" aria-hidden="true">

@@ -70,7 +70,7 @@ const cycleTick = () => {
           </button>
           <button
             v-if="hasDecimalBook"
-            class="pm-focus font-mono flex h-5.5 w-11 items-center justify-center overflow-hidden rounded-md border px-2 text-[11px] font-semibold tabular-nums transition-colors duration-150"
+            class="pm-focus font-mono flex h-5.5 w-14 items-center justify-center overflow-hidden rounded-md border px-2 text-[11px] font-semibold tabular-nums transition-colors duration-150"
             :class="tickTenths > 1 ? 'border-border-hover text-white' : 'border-border text-text-2 hover:border-border-hover hover:text-white'"
             title="Order book tick size — click to change"
             @click="cycleTick"

@@ -2,6 +2,8 @@
 import type { Outcome, OrderSide, Position } from "~/types/account";
 import type { GammaMarket } from "~/types/gamma";
 import { parseClobTokenIds, positionCost, positionCurrentValue, positionKey, positionPnl, positionPnlPercent } from "~/utils/markets";
+import { marketTickCents } from "~/utils/quotes";
+import { tickDecimals } from "~/utils/prices";
 
 const props = defineProps<{
   market: GammaMarket;
@@ -24,6 +26,7 @@ const lookupIdFor = (m: GammaMarket) => (isLiveAccount.value ? m.conditionId || 
 const labelsForMarket = (m: GammaMarket): [string, string] => props.labelsFor?.(m) ?? props.outcomeLabels;
 const colorsForMarket = (m: GammaMarket): Partial<Record<Outcome, string>> => props.colorsFor?.(m) ?? props.outcomeColors ?? {};
 const pricesForMarket = (m: GammaMarket) => props.currentPricesByMarket?.[m.id] ?? (m.id === props.market.id ? props.currentPrices : undefined);
+const marketDecimals = (m: GammaMarket) => Math.max(1, tickDecimals(marketTickCents(m)));
 
 interface PositionRow {
   market: GammaMarket;
@@ -71,16 +74,17 @@ interface OrderRow {
   total: number;
   remaining: number;
   totalUsd: number;
+  decimals: number;
 }
 
 const tokenIndex = computed(() => {
-  const map = new Map<string, { outcome: Outcome; label: string; color?: string }>();
+  const map = new Map<string, { outcome: Outcome; label: string; color?: string; market: GammaMarket }>();
   for (const market of ledgerMarkets.value) {
     const labels = labelsForMarket(market),
       colors = colorsForMarket(market);
     parseClobTokenIds(market).forEach((token, i) => {
       const outcome: Outcome = i === 1 ? "no" : "yes";
-      map.set(token, { outcome, label: labels[i === 1 ? 1 : 0], color: colors[outcome] });
+      map.set(token, { outcome, label: labels[i === 1 ? 1 : 0], color: colors[outcome], market });
     });
   }
   return map;
@@ -97,7 +101,7 @@ const orderRows = computed<OrderRow[]>(() => {
         const total = Number.parseFloat(o.original_size) || 0,
           filled = Number.parseFloat(o.size_matched) || 0,
           price = Number.parseFloat(o.price) || 0;
-        return { id: o.id, side: (o.side?.toLowerCase() === "sell" ? "sell" : "buy") as OrderSide, outcome: meta.outcome, label: meta.label, color: meta.color, priceCents: price * 100, filled, total, remaining: Math.max(total - filled, 0), totalUsd: price * total };
+        return { id: o.id, side: (o.side?.toLowerCase() === "sell" ? "sell" : "buy") as OrderSide, outcome: meta.outcome, label: meta.label, color: meta.color, priceCents: price * 100, filled, total, remaining: Math.max(total - filled, 0), totalUsd: price * total, decimals: marketDecimals(meta.market) };
       })
       .filter((o): o is OrderRow => o !== null && o.remaining > 0);
   }
@@ -105,7 +109,7 @@ const orderRows = computed<OrderRow[]>(() => {
     .filter((o) => groupMarketIds.value.has(o.marketId))
     .map((o) => {
       const m = ledgerMarkets.value.find((x) => x.id === o.marketId) ?? props.market;
-      return { id: o.id, side: o.side, outcome: o.outcome, label: labelsForMarket(m)[o.outcome === "yes" ? 0 : 1], color: colorsForMarket(m)[o.outcome], priceCents: o.price * 100, filled: 0, total: o.shares, remaining: o.shares, totalUsd: o.price * o.shares };
+      return { id: o.id, side: o.side, outcome: o.outcome, label: labelsForMarket(m)[o.outcome === "yes" ? 0 : 1], color: colorsForMarket(m)[o.outcome], priceCents: o.price * 100, filled: 0, total: o.shares, remaining: o.shares, totalUsd: o.price * o.shares, decimals: marketDecimals(m) };
     });
 });
 
@@ -203,7 +207,7 @@ const ORD_GRID = "grid grid-cols-[minmax(52px,0.7fr)_minmax(128px,1.5fr)_minmax(
                 <span v-if="row.color" class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: row.color }" />
                 <span class="font-semibold text-text">{{ row.label }}</span>
                 <span class="text-border-2">|</span>
-                <span class="font-mono text-text-2"><NumericOdometer :value="row.shares" :maximum-fraction-digits="2" /> @ <NumericOdometer :value="row.avgCents" :minimum-fraction-digits="1" :maximum-fraction-digits="1" suffix="¢" /></span>
+                <span class="font-mono text-text-2"><NumericOdometer :value="row.shares" :maximum-fraction-digits="2" /> @ <NumericOdometer :value="row.avgCents" :minimum-fraction-digits="1" :maximum-fraction-digits="marketDecimals(row.market)" suffix="¢" /></span>
               </span>
             </div>
           </Transition>
@@ -230,7 +234,7 @@ const ORD_GRID = "grid grid-cols-[minmax(52px,0.7fr)_minmax(128px,1.5fr)_minmax(
                     <span class="text-border-2">|</span>
                     <span class="font-mono text-text-2"><NumericOdometer :value="row.shares" :maximum-fraction-digits="2" /></span>
                   </span>
-                  <span class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="row.avgCents" :minimum-fraction-digits="1" :maximum-fraction-digits="1" suffix="¢" /></span>
+                  <span class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="row.avgCents" :minimum-fraction-digits="1" :maximum-fraction-digits="marketDecimals(row.market)" suffix="¢" /></span>
                   <span class="font-mono text-right text-xs text-text-2"><NumericOdometer :value="row.cost" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" /></span>
                   <span class="font-mono text-right text-xs text-text-2"><NumericOdometer :value="row.toWin" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" /></span>
                   <span class="font-mono text-right text-xs font-semibold" :class="row.pnl >= 0 ? 'text-yes' : 'text-no'">
@@ -267,7 +271,7 @@ const ORD_GRID = "grid grid-cols-[minmax(52px,0.7fr)_minmax(128px,1.5fr)_minmax(
                 <span v-if="row.color" class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: row.color }" />
                 <span class="font-semibold text-text">{{ row.label }}</span>
                 <span class="text-border-2">|</span>
-                <span class="font-mono text-text-2"><NumericOdometer :value="row.remaining" :maximum-fraction-digits="2" /> @ <NumericOdometer :value="row.priceCents" :minimum-fraction-digits="1" :maximum-fraction-digits="1" suffix="¢" /></span>
+                <span class="font-mono text-text-2"><NumericOdometer :value="row.remaining" :maximum-fraction-digits="2" /> @ <NumericOdometer :value="row.priceCents" :minimum-fraction-digits="1" :maximum-fraction-digits="row.decimals" suffix="¢" /></span>
               </span>
             </div>
           </Transition>
@@ -293,7 +297,7 @@ const ORD_GRID = "grid grid-cols-[minmax(52px,0.7fr)_minmax(128px,1.5fr)_minmax(
                       <span v-if="row.color" class="h-2.5 w-2.5 shrink-0 rounded-sm" :style="{ backgroundColor: row.color }" />
                       <span class="font-semibold text-text">{{ row.label }}</span>
                     </span>
-                    <span class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="row.priceCents" :minimum-fraction-digits="1" :maximum-fraction-digits="1" suffix="¢" /></span>
+                    <span class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="row.priceCents" :minimum-fraction-digits="1" :maximum-fraction-digits="row.decimals" suffix="¢" /></span>
                     <span class="font-mono text-xs text-text-2"><NumericOdometer :value="row.filled" :maximum-fraction-digits="2" /> / <NumericOdometer :value="row.total" :maximum-fraction-digits="2" /></span>
                     <span class="font-mono text-right text-xs text-text-2"><NumericOdometer :value="row.totalUsd" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" /></span>
                     <span class="text-xs text-text-3">Until cancelled</span>
