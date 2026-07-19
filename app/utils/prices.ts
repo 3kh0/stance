@@ -1,10 +1,11 @@
 const hasDec = (n: number) => Math.abs(n - Math.round(n)) > 0.001;
 const loc = (n: number, max: number, min = 0) => (n || 0).toLocaleString("en-US", { minimumFractionDigits: min, maximumFractionDigits: max });
 
-export const fmtc = (cents: number, forceDecimal = false): string => {
+export const fmtc = (cents: number, forceDecimal: boolean | number = false): string => {
   if (cents === undefined || cents === null) return "0¢";
-  const r = Math.round(cents * 10) / 10;
-  return (forceDecimal || hasDec(r) ? r.toFixed(1) : r.toFixed(0)) + "¢";
+  const r = Math.round(cents * 100) / 100;
+  const digits = forceDecimal === 2 || hasDec(r * 10) ? 2 : forceDecimal || hasDec(r) ? 1 : 0;
+  return r.toFixed(digits) + "¢";
 };
 
 export const fmtcp = (price: number, forceDecimal?: boolean): string => (price === undefined || price === null ? "0¢" : fmtc(price * 100, forceDecimal ?? hasDec(price * 100)));
@@ -32,6 +33,14 @@ export const proba = (pct: number, neutral = "text-text"): string => (pct >= 55 
 
 export const probb = (pct: number): string => (pct >= 50 ? "bg-yes" : "bg-no");
 
-export const decimalcent = (levels: Array<{ price: number }>): boolean => levels.some((l) => hasDec(Math.round(l.price * 1000) / 10));
+export const decimalcent = (levels: Array<{ price: number }>): number => {
+  let precision = 0;
+  for (const l of levels) {
+    const h = Math.round(l.price * 10000);
+    if (h % 10 !== 0) return 2;
+    if (h % 100 !== 0) precision = 1;
+  }
+  return precision;
+};
 
-export const fmtClob = (price: number, decimalBook: boolean): string => (price === undefined || price === null ? "0¢" : fmtc(price * 100, decimalBook));
+export const fmtClob = (price: number, decimalBook: boolean | number): string => (price === undefined || price === null ? "0¢" : fmtc(price * 100, decimalBook));

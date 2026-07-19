@@ -19,13 +19,14 @@ export const tickLabel = (tenths: number): string => `${tenths / 10}¢`;
 
 export function groupByTick(levels: OrderbookLevel[], tickTenths: number, ascending: boolean): OrderbookLevel[] {
   if (tickTenths <= 1) return levels;
+  const tickHundredths = Math.round(tickTenths * 10);
   const m = new Map<number, number>();
   for (const l of levels) {
-    const b = Math.floor(Math.round(l.price * 1000) / tickTenths) * tickTenths;
+    const b = Math.floor(Math.round(l.price * 10000) / tickHundredths) * tickHundredths;
     m.set(b, (m.get(b) ?? 0) + l.size);
   }
   return withDepth(
-    [...m].map(([b, size]) => ({ price: b / 1000, size })),
+    [...m].map(([b, size]) => ({ price: b / 10000, size })),
     ascending,
   );
 }

@@ -423,7 +423,7 @@ const shares = computed(() => (marketInputIsShares.value ? amount.value : calcul
 
 const tickCents = computed(() => {
   const t = props.tickSize;
-  return t && [0.1, 0.01, 0.001, 0.0001].includes(t) ? t * 100 : 1;
+  return t && [0.1, 0.01, 0.005, 0.0025, 0.001, 0.0001].includes(t) ? t * 100 : 1;
 });
 
 const summaryPriceCents = computed(() => (orderMode.value === "market" ? currentPrice.value : limitPriceCents.value));

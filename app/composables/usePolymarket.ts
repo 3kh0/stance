@@ -54,7 +54,7 @@ type TypedDataDomain = Record<string, unknown>;
 type TypedDataTypes = Record<string, Array<{ name: string; type: string }>>;
 type TypedDataValue = Record<string, unknown>;
 
-const ALLOWED_TICKS = ["0.1", "0.01", "0.001", "0.0001"] as const;
+const ALLOWED_TICKS = ["0.1", "0.01", "0.005", "0.0025", "0.001", "0.0001"] as const;
 type Tick = (typeof ALLOWED_TICKS)[number];
 
 function domainTypes(domain: TypedDataDomain): Array<{ name: string; type: string }> {

@@ -14,7 +14,7 @@ export function useOrderbookView(bookData: Ref<OrderbookData | null>) {
   const bookSpread = computed(() => {
     const ask = topAsk.value;
     const bid = topBid.value;
-    return ask === undefined || bid === undefined ? null : fmtc(Math.round((ask - bid) * 1000) / 10);
+    return ask === undefined || bid === undefined ? null : fmtc(Math.round((ask - bid) * 10000) / 100);
   });
 
   const lastBookPrice = computed(() => {
