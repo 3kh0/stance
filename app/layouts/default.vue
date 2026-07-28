@@ -80,7 +80,7 @@ onBeforeUnmount(() => document.removeEventListener("keydown", onGlobalKeydown));
         <kbd class="shrink-0 rounded border border-border bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-medium text-text-3">⌘K</kbd>
       </button>
 
-      <div class="flex shrink-0 items-center gap-2.5">
+      <div class="flex shrink-0 items-center gap-2.5 max-md:ml-auto">
         <template v-if="hasAccount()">
           <NuxtLink href="/portfolio" class="pm-focus flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 transition-colors duration-150 hover:border-border-2">
             <span class="text-[11px] font-medium text-text-3">Portfolio</span>

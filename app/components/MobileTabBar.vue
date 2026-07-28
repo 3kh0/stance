@@ -19,7 +19,7 @@ const items: Item[] = [
 
 <template>
   <nav class="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-bg pb-[env(safe-area-inset-bottom)] md:hidden" aria-label="Primary">
-    <div class="grid grid-cols-6">
+    <div class="grid grid-cols-5">
       <template v-for="it in items" :key="it.label">
         <button v-if="it.search" type="button" :class="b + ' text-text-3'" aria-label="Search markets" @click="$emit('search')">
           <Icon :name="it.icon" class="h-4.5 w-4.5" />
