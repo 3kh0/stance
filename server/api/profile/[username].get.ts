@@ -1,12 +1,14 @@
+interface ProfileSearchResult {
+  name?: string;
+  pseudonym?: string;
+  displayUsernamePublic?: boolean;
+  profileImage?: string;
+  bio?: string;
+  proxyWallet?: string;
+}
+
 interface ProfileSearchResponse {
-  profiles?: Array<{
-    name?: string;
-    pseudonym?: string;
-    displayUsernamePublic?: boolean;
-    profileImage?: string;
-    bio?: string;
-    proxyWallet?: string;
-  }>;
+  profiles?: Array<ProfileSearchResult | null>;
 }
 
 interface ProfileUserData {
@@ -59,30 +61,36 @@ interface ProfileActivity {
 
 const ok = <T>(r: PromiseSettledResult<T>, fb: T): T => (r.status === "fulfilled" ? r.value : fb);
 
-function requireUsername(value: string | undefined): string {
-  const u = decodeURIComponent(value ?? "")
+function requireProfileIdentifier(value: string | undefined): string {
+  const identifier = decodeURIComponent(value ?? "")
     .replace(/^@+/, "")
     .trim();
-  if (!/^[a-zA-Z0-9_-]{1,64}$/.test(u)) throw createError({ statusCode: 400, statusMessage: "Invalid profile username" });
-  return u;
+  if (!coerceAddress(identifier) && !/^[a-zA-Z0-9_-]{1,64}$/.test(identifier)) throw createError({ statusCode: 400, statusMessage: "Invalid profile username or address" });
+  return identifier;
 }
 
 export default defineEventHandler(async (event) => {
-  const username = requireUsername(getRouterParam(event, "username"));
-  const search = await proxyUpstream<ProfileSearchResponse>(GAMMA_BASE_URL, "/search-v2", {
-    q: username,
-    optimized: true,
-    limit_per_type: 10,
-    type: "events",
-    search_tags: false,
-    search_profiles: true,
-    cache: true,
-  });
+  const identifier = requireProfileIdentifier(getRouterParam(event, "username"));
+  let wallet = coerceAddress(identifier);
+  let seed: ProfileSearchResult | undefined;
 
-  const lower = username.toLowerCase();
-  const seed = search.profiles?.find((p) => p.name?.toLowerCase() === lower) ?? search.profiles?.find((p) => p.pseudonym?.toLowerCase() === lower) ?? search.profiles?.[0];
-  const wallet = coerceAddress(seed?.proxyWallet);
-  if (!seed || !wallet) throw createError({ statusCode: 404, statusMessage: "Profile not found" });
+  if (!wallet) {
+    const search = await proxyUpstream<ProfileSearchResponse>(GAMMA_BASE_URL, "/search-v2", {
+      q: identifier,
+      optimized: true,
+      limit_per_type: 10,
+      type: "events",
+      search_tags: false,
+      search_profiles: true,
+      cache: true,
+    });
+    const lower = identifier.toLowerCase();
+    const profiles = search.profiles?.filter((p): p is ProfileSearchResult => p != null) ?? [];
+    seed = profiles.find((p) => p.name?.toLowerCase() === lower) ?? profiles.find((p) => p.pseudonym?.toLowerCase() === lower) ?? profiles[0];
+    wallet = coerceAddress(seed?.proxyWallet);
+  }
+
+  if (!wallet) throw createError({ statusCode: 404, statusMessage: "Profile not found" });
 
   const [userDataR, valueR, positionsR, activityR] = await Promise.allSettled([
     proxyImpit<ProfileUserData | null>(POLYMARKET_BASE_URL, "/api/profile/userData", { address: wallet }),
@@ -99,11 +107,11 @@ export default defineEventHandler(async (event) => {
   return {
     profile: {
       id: userData?.id,
-      name: userData?.name ?? seed.name,
-      pseudonym: userData?.pseudonym ?? seed.pseudonym,
-      displayUsernamePublic: userData?.displayUsernamePublic ?? seed.displayUsernamePublic,
-      profileImage: userData?.profileImage ?? seed.profileImage,
-      bio: userData?.bio ?? seed.bio,
+      name: userData?.name ?? seed?.name,
+      pseudonym: userData?.pseudonym ?? seed?.pseudonym,
+      displayUsernamePublic: userData?.displayUsernamePublic ?? seed?.displayUsernamePublic,
+      profileImage: userData?.profileImage ?? seed?.profileImage,
+      bio: userData?.bio ?? seed?.bio,
       proxyWallet: wallet,
       createdAt: userData?.createdAt,
       xUsername: userData?.xUsername,

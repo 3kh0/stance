@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { formatRelativeTime } from "~/utils/markets";
 
+definePageMeta({ alias: "/profile/:username" });
+
 interface PublicProfile {
   name?: string;
   pseudonym?: string;
@@ -79,7 +81,7 @@ const number = (v: number | undefined, d = 1) => (Number.isFinite(v) ? (v ?? 0).
 const cents = (v: number | undefined) => `${number((v ?? 0) * 100, (v ?? 0) < 0.01 ? 2 : 1)}¢`;
 const percent = (v: number | undefined) => `${(v ?? 0) >= 0 ? "+" : "-"}${number(Math.abs(v ?? 0), 2)}%`;
 const shortWallet = (w: string | undefined) => (w ? `${w.slice(0, 6)}...${w.slice(-4)}` : "");
-const profileHref = computed(() => `https://polymarket.com/@${encodeURIComponent(displayName.value)}`);
+const profileHref = computed(() => (profile.value?.name || profile.value?.pseudonym ? `https://polymarket.com/@${encodeURIComponent(displayName.value)}` : `https://polymarket.com/profile/${profile.value?.proxyWallet}`));
 const twitterHref = computed(() => (profile.value?.xUsername ? `https://x.com/${profile.value.xUsername}` : ""));
 
 function formatJoinDate(raw: string | undefined): string {
