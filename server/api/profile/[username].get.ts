@@ -46,6 +46,7 @@ interface ProfilePosition {
 
 interface ProfileActivity {
   timestamp?: number;
+  conditionId?: string;
   type?: string;
   side?: string;
   size?: number;
@@ -57,6 +58,29 @@ interface ProfileActivity {
   eventSlug?: string;
   outcome?: string;
   transactionHash?: string;
+  isCombo?: boolean;
+  combo?: {
+    legsTotal: number;
+    outcomes: string[];
+    icons: string[];
+  };
+}
+
+interface ComboPosition {
+  combo_condition_id?: string;
+  legs_total?: number;
+  legs?: Array<{
+    leg_outcome_label?: string;
+    market?: {
+      icon_url?: string;
+      image_url?: string;
+      event?: { event_image?: string };
+    };
+  }>;
+}
+
+interface ComboPositionsResponse {
+  combos?: ComboPosition[];
 }
 
 const ok = <T>(r: PromiseSettledResult<T>, fb: T): T => (r.status === "fulfilled" ? r.value : fb);
@@ -102,6 +126,23 @@ export default defineEventHandler(async (event) => {
   const userData = ok(userDataR, null);
   const positions = ok(positionsR, []);
   const activity = ok(activityR, []);
+  const comboConditionIds = [...new Set(activity.filter((item) => item.isCombo && item.conditionId).map((item) => item.conditionId!))];
+  if (comboConditionIds.length) {
+    const combosR = await Promise.allSettled([proxyUpstream<ComboPositionsResponse>(DATA_API_BASE_URL, "/v1/positions/combos", { user: wallet, market_id: comboConditionIds.join(","), limit: comboConditionIds.length })]);
+    const combos = ok<ComboPositionsResponse>(combosR[0], {}).combos ?? [];
+    const comboByConditionId = new Map(combos.map((combo) => [combo.combo_condition_id, combo]));
+    for (const item of activity) {
+      if (!item.isCombo || !item.conditionId) continue;
+      const combo = comboByConditionId.get(item.conditionId);
+      if (!combo) continue;
+      const legs = combo.legs ?? [];
+      item.combo = {
+        legsTotal: combo.legs_total ?? legs.length,
+        outcomes: legs.map((leg) => leg.leg_outcome_label).filter((outcome): outcome is string => Boolean(outcome)),
+        icons: [...new Set(legs.map((leg) => leg.market?.icon_url || leg.market?.image_url || leg.market?.event?.event_image).filter((icon): icon is string => Boolean(icon)))],
+      };
+    }
+  }
   const value = ok(valueR, [])[0]?.value ?? positions.reduce((t, p) => t + (Number(p.currentValue) || 0), 0);
 
   return {

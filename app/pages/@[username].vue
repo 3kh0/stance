@@ -36,6 +36,7 @@ interface PublicPosition {
 
 interface PublicActivity {
   timestamp?: number;
+  conditionId?: string;
   type?: string;
   side?: string;
   size?: number;
@@ -47,6 +48,12 @@ interface PublicActivity {
   eventSlug?: string;
   outcome?: string;
   transactionHash?: string;
+  isCombo?: boolean;
+  combo?: {
+    legsTotal: number;
+    outcomes: string[];
+    icons: string[];
+  };
 }
 
 interface ProfileResponse {
@@ -104,9 +111,11 @@ function activityLabel(a: PublicActivity): string {
 
 const activityAmount = (a: PublicActivity) => Number(a.usdcSize) || (Number(a.size) || 0) * (Number(a.price) || 0);
 const isYieldActivity = (a: PublicActivity) => a.type?.toLowerCase() === "yield";
-const activityTitle = (a: PublicActivity) => (isYieldActivity(a) ? "Holdings yield (3.25% APR)" : a.title || activityLabel(a));
+const activityTitle = (a: PublicActivity) => (isYieldActivity(a) ? "Holdings yield (3.25% APR)" : a.isCombo && a.combo ? `${a.combo.legsTotal} pick combo` : a.title || activityLabel(a));
+const comboSelections = (a: PublicActivity) => a.combo?.outcomes.join(", ") ?? "";
 const activitySubtitle = (a: PublicActivity) => {
   if (isYieldActivity(a)) return `${money(activityAmount(a))} credited`;
+  if (a.isCombo && a.combo) return comboSelections(a);
   const n = Number(a.size) || 0;
   return n > 0 ? `${number(n, 2)} sh` : "";
 };
@@ -291,13 +300,19 @@ useSeoMeta({
                     @keydown.space.prevent="openActivity(item)"
                   >
                     <span class="w-14 shrink-0 text-[9px] font-bold uppercase tracking-widest" :class="activityTypeClass(item)">{{ activityLabel(item) }}</span>
-                    <MarketIcon v-if="item.icon" :src="item.icon" :alt="item.title || activityLabel(item)" class="h-8 w-8 shrink-0 rounded-md border border-border object-cover" />
+                    <span v-if="item.isCombo && item.combo?.icons.length" class="flex w-9 shrink-0 items-center pl-1">
+                      <MarketIcon v-for="icon in item.combo.icons.slice(0, 2)" :key="icon" :src="icon" :alt="activityTitle(item)" class="-ml-1 h-7 w-7 rounded-md border border-border bg-surface object-cover" />
+                    </span>
+                    <MarketIcon v-else-if="item.icon" :src="item.icon" :alt="item.title || activityLabel(item)" class="h-8 w-8 shrink-0 rounded-md border border-border object-cover" />
                     <span v-else class="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-border bg-surface-2 text-text-3" :class="isYieldActivity(item) ? 'border-yes/25 bg-yes-bg text-yes' : ''">
                       <Icon :name="isYieldActivity(item) ? 'lucide:piggy-bank' : 'lucide:activity'" class="h-3.5 w-3.5" />
                     </span>
                     <span class="min-w-0 flex-1">
-                      <span class="block truncate text-[12.5px] font-semibold leading-5 text-text">{{ activityTitle(item) }}</span>
-                      <span class="mt-0.5 flex items-center gap-1.5">
+                      <span v-if="item.isCombo && item.combo" class="block truncate text-[12.5px] leading-5"
+                        ><span class="font-semibold text-text">{{ activityTitle(item) }}</span> <span class="text-text-3">{{ comboSelections(item) }}</span></span
+                      >
+                      <span v-else class="block truncate text-[12.5px] font-semibold leading-5 text-text">{{ activityTitle(item) }}</span>
+                      <span v-if="!item.isCombo" class="mt-0.5 flex items-center gap-1.5">
                         <span v-if="item.outcome" class="font-mono rounded-sm px-1.5 text-[10px] font-semibold leading-4" :class="String(item.outcome).toLowerCase() === 'yes' ? 'bg-yes-bg text-yes' : 'bg-no-bg text-no'"
                           >{{ item.outcome }} <template v-if="item.price">{{ cents(item.price) }}</template></span
                         >
