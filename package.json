@@ -18,7 +18,7 @@
   "dependencies": {
     "@nuxt/hints": "1.1.4",
     "@nuxt/icon": "2.4.1",
-    "@nuxt/image": "^2.0.0",
+    "@nuxt/image": "^2.1.0",
     "@polymarket/clob-client-v2": "^1.1.0",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.3",
