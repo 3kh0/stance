@@ -35,7 +35,7 @@ function subscriptionFor(info: PriceFeedInfo) {
     info.source === "equity"
       ? { topic: "equity_prices", type: "update", filters: JSON.stringify({ symbol: info.feedSymbol }) }
       : info.source === "chainlink"
-        ? { topic: "crypto_prices_chainlink", type: "*", filters: JSON.stringify({ symbol: info.feedSymbol }) }
+        ? { topic: info.twapWindowSeconds === 30 ? "crypto_prices_twap_thirty" : info.twapWindowSeconds === 60 ? "crypto_prices_twap_sixty" : "crypto_prices_chainlink", type: info.twapWindowSeconds ? "update" : "*", filters: JSON.stringify({ symbol: info.feedSymbol }) }
         : { topic: "crypto_prices", type: "update", filters: info.feedSymbol };
   return { action: "subscribe", subscriptions: [sub] };
 }
@@ -118,6 +118,7 @@ export function useCryptoPriceFeed(info: Ref<PriceFeedInfo | null>) {
 
   const socket = useReconnectingSocket({
     url: RTDS_URL,
+    pingMs: 5_000,
     canConnect: () => info.value !== null,
     subscribeMessage: () => subscriptionFor(info.value!),
     onMessage: handleMessage,
@@ -139,7 +140,7 @@ export function useCryptoPriceFeed(info: Ref<PriceFeedInfo | null>) {
   });
 
   watch(
-    () => (info.value ? `${info.value.source}:${info.value.feedSymbol}:${info.value.windowStartMs}:${info.value.windowEndMs}` : null),
+    () => (info.value ? `${info.value.source}:${info.value.feedSymbol}:${"twapWindowSeconds" in info.value ? info.value.twapWindowSeconds : ""}:${info.value.windowStartMs}:${info.value.windowEndMs}` : null),
     () => {
       reset();
       if (info.value) openFeed();

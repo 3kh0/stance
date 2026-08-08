@@ -62,7 +62,7 @@ const eventUrl = computed(() => `/event/${props.event.slug ?? props.event.id}?x=
 
     <div class="flex items-end justify-between gap-2">
       <div class="min-w-0">
-        <div class="text-[9px] font-bold uppercase tracking-widest text-text-3">Current</div>
+        <div class="text-[9px] font-bold uppercase tracking-widest text-text-3">{{ info?.twapWindowSeconds ? `${info.twapWindowSeconds}s TWAP` : "Current" }}</div>
         <div class="font-mono text-[19px] font-semibold leading-none tabular-nums" :class="deltaColor">
           <NumericOdometer v-if="livePrice !== null" :value="livePrice" prefix="$" :minimum-fraction-digits="priceDecimals" :maximum-fraction-digits="priceDecimals" />
           <span v-else class="text-text-3">—</span>
@@ -73,7 +73,7 @@ const eventUrl = computed(() => `/event/${props.event.slug ?? props.event.id}?x=
         </div>
       </div>
       <div v-if="priceToBeat !== null" class="text-right">
-        <div class="text-[9px] font-bold uppercase tracking-widest text-text-3">Price to beat</div>
+        <div class="text-[9px] font-bold uppercase tracking-widest text-text-3">{{ info?.twapWindowSeconds ? "Opening TWAP" : "Price to beat" }}</div>
         <div class="font-mono text-[13px] font-semibold leading-none tabular-nums text-text-2">
           <NumericOdometer :value="priceToBeat" prefix="$" :minimum-fraction-digits="priceDecimals" :maximum-fraction-digits="priceDecimals" />
         </div>

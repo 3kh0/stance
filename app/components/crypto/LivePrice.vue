@@ -26,14 +26,14 @@
   <div v-else class="overflow-hidden rounded-xl border border-border bg-surface">
     <div class="flex items-stretch divide-x divide-border">
       <div class="min-w-0 flex-1 px-4 py-3">
-        <div class="text-[10px] font-bold uppercase tracking-widest text-text-3">Price to Beat</div>
+        <div class="text-[10px] font-bold uppercase tracking-widest text-text-3">{{ twapWindowSeconds ? "Opening TWAP" : "Price to Beat" }}</div>
         <div v-if="priceToBeat !== null" class="font-mono mt-1 text-[19px] font-semibold leading-none tabular-nums text-text-2">${{ formatPrice(priceToBeat) }}</div>
         <div v-else class="font-mono mt-1 text-[19px] font-semibold leading-none text-text-3">—</div>
       </div>
 
       <div class="min-w-0 flex-[1.3] px-4 py-3">
         <div class="flex items-center gap-1.5">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-text-3">Current price</span>
+          <span class="text-[10px] font-bold uppercase tracking-widest text-text-3">{{ twapWindowSeconds ? `${twapWindowSeconds}s TWAP` : "Current price" }}</span>
         </div>
         <div class="mt-1 flex items-baseline gap-2">
           <div class="font-mono text-[22px] font-semibold leading-none" :class="priceColor">
@@ -80,6 +80,7 @@ const props = defineProps<{
 
 const price = computed(() => props.price ?? null);
 const priceToBeat = computed(() => props.priceToBeat ?? null);
+const twapWindowSeconds = computed(() => ("twapWindowSeconds" in props.info ? props.info.twapWindowSeconds : null));
 
 const isMounted = ref(false);
 const now = ref(props.info.windowStartMs ?? Date.now());

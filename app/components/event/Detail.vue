@@ -44,7 +44,7 @@
               :price-points="liveAssetPoints"
               :price-to-beat="priceMarketBenchmark"
               :current-price="liveAssetPrice"
-              :price-mode-label="financeUpDown ? 'Asset price' : 'Crypto price'"
+              :price-mode-label="financeUpDown ? 'Asset price' : crypto?.twapWindowSeconds ? `${crypto.twapWindowSeconds}s TWAP` : 'Crypto price'"
               :waiting-label="financeUpDown ? 'Waiting for equity price data...' : undefined"
               :price-chart-aria-label="financeUpDown ? 'Live equity price with price-to-beat line' : undefined"
               @hover-value="chartHovered = $event"

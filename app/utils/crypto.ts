@@ -9,6 +9,7 @@ export interface CryptoUpDownInfo {
   display: string;
   source: "chainlink" | "binance";
   feedSymbol: string;
+  twapWindowSeconds: 30 | 60 | null;
   windowStartMs: number | null;
   windowEndMs: number | null;
   slugPrefix: string;
@@ -40,14 +41,19 @@ type CryptoEventLike = {
   seriesSlug?: string;
   markets?: GammaMarket[];
   endDate?: string;
+  resolutionSource?: string;
 };
 
 const LEGACY_SLUG_RE = /^([a-z]+)-updown-([a-z0-9]+)-(\d+)$/i;
 const SERIES_RE = /^(.+?)-up-or-down-(5m|15m|hourly|4h|daily)$/i;
 
-function buildInfo(coinToken: string, suffix: string, windowStartMs: number | null, windowEndMs: number | null, intervalMs: number | null): CryptoUpDownInfo {
+function buildInfo(event: CryptoEventLike, coinToken: string, suffix: string, windowStartMs: number | null, windowEndMs: number | null, intervalMs: number | null): CryptoUpDownInfo {
   const coin = normalizeCoin(coinToken);
-  return { coin, display: coin.toUpperCase(), ...cryptoFeedSource(coin), windowStartMs, windowEndMs, slugPrefix: `${coin}-updown-${suffix}`, intervalMs };
+  const resolutionSource = event.resolutionSource ?? event.markets?.[0]?.resolutionSource ?? "";
+  const twapMatch = /twap-(30|60)s/i.exec(resolutionSource);
+  const twapWindowSeconds = twapMatch?.[1] === "30" ? 30 : twapMatch?.[1] === "60" ? 60 : null;
+  const feed = /binance/i.test(resolutionSource) ? { source: "binance" as const, feedSymbol: `${coin}usdt` } : cryptoFeedSource(coin);
+  return { coin, display: coin.toUpperCase(), ...feed, twapWindowSeconds, windowStartMs, windowEndMs, slugPrefix: `${coin}-updown-${suffix}`, intervalMs };
 }
 
 export function detectCryptoUpDown(event: CryptoEventLike | null | undefined): CryptoUpDownInfo | null {
@@ -57,13 +63,13 @@ export function detectCryptoUpDown(event: CryptoEventLike | null | undefined): C
   if (s?.[1] && s[2]) {
     const intervalMs = parseIntervalMs(s[2]);
     const windowEndMs = marketEndMs(event);
-    return buildInfo(s[1], s[2], windowEndMs !== null && intervalMs !== null ? windowEndMs - intervalMs : null, windowEndMs, intervalMs);
+    return buildInfo(event, s[1], s[2], windowEndMs !== null && intervalMs !== null ? windowEndMs - intervalMs : null, windowEndMs, intervalMs);
   }
 
   const l = event.slug ? LEGACY_SLUG_RE.exec(event.slug) : null;
   if (l?.[1] && l[2] && l[3]) {
     const unix = Number.parseInt(l[3], 10);
-    return buildInfo(l[1], l[2], Number.isFinite(unix) ? unix * 1000 : null, marketEndMs(event), parseIntervalMs(l[2]));
+    return buildInfo(event, l[1], l[2], Number.isFinite(unix) ? unix * 1000 : null, marketEndMs(event), parseIntervalMs(l[2]));
   }
 
   return null;

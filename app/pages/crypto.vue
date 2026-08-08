@@ -21,15 +21,15 @@ const cryptoEvents = computed(() => data.value?.events ?? []);
 const forecastEvents = computed(() => cryptoEvents.value.filter((e) => classifyCryptoEvent(e) === "forecast"));
 const themeEvents = computed(() => cryptoEvents.value.filter((e) => classifyCryptoEvent(e) === "theme"));
 
-const upDownCoins = computed(() => {
-  const s = new Set<string>();
+const upDownInfos = computed(() => {
+  const infos = new Map<string, NonNullable<ReturnType<typeof detectCryptoUpDown>>>();
   for (const e of upDownEvents.value) {
     const i = detectCryptoUpDown(e);
-    if (i) s.add(i.coin);
+    if (i) infos.set(i.coin, i);
   }
-  return [...s];
+  return [...infos.values()];
 });
-const { prices, connected } = useCryptoPricesFeed(upDownCoins);
+const { prices, connected } = useCryptoPricesFeed(upDownInfos);
 
 const price = computed(() => (selectedCoin.value ? (prices.value.get(selectedCoin.value) ?? null) : null));
 const isEmpty = computed(() => !pending.value && !upDownEvents.value.length && !cryptoEvents.value.length);

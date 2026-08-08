@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, ref, watch, type Ref } from "vue";
-import { cryptoFeedSource, normalizeCoin } from "~/utils/crypto";
+import { normalizeCoin, type CryptoUpDownInfo } from "~/utils/crypto";
 
 interface RtdsPricePayload {
   symbol?: string;
@@ -14,11 +14,13 @@ interface RtdsMessage {
   payload?: RtdsPricePayload;
 }
 
-function subscriptionsFor(coins: string[]) {
-  return coins.map((coin) => {
-    const { source, feedSymbol } = cryptoFeedSource(coin);
-    return source === "chainlink" ? { topic: "crypto_prices_chainlink", type: "*", filters: JSON.stringify({ symbol: feedSymbol }) } : { topic: "crypto_prices", type: "update", filters: feedSymbol };
-  });
+function subscriptionsFor(infos: CryptoUpDownInfo[]) {
+  const subscriptions = infos.map(({ source, feedSymbol, twapWindowSeconds }) =>
+    source === "chainlink"
+      ? { topic: twapWindowSeconds === 30 ? "crypto_prices_twap_thirty" : twapWindowSeconds === 60 ? "crypto_prices_twap_sixty" : "crypto_prices_chainlink", type: twapWindowSeconds ? "update" : "*", filters: JSON.stringify({ symbol: feedSymbol }) }
+      : { topic: "crypto_prices", type: "update", filters: feedSymbol },
+  );
+  return [...new Map(subscriptions.map((sub) => [`${sub.topic}:${sub.filters}`, sub])).values()];
 }
 
 function coinFromSymbol(symbol: string | undefined): string | null {
@@ -30,7 +32,7 @@ function coinFromSymbol(symbol: string | undefined): string | null {
   return normalizeCoin(s);
 }
 
-export function useCryptoPricesFeed(coins: Ref<string[]>) {
+export function useCryptoPricesFeed(infos: Ref<CryptoUpDownInfo[]>) {
   const prices = ref<Map<string, number>>(new Map());
   const connected = ref(false);
 
@@ -40,7 +42,7 @@ export function useCryptoPricesFeed(coins: Ref<string[]>) {
   let stopped = false;
 
   function setPrice(coin: string, value: number) {
-    if (!Number.isFinite(value) || !coins.value.includes(coin)) return;
+    if (!Number.isFinite(value) || !infos.value.some((info) => info.coin === coin)) return;
     const next = new Map(prices.value);
     next.set(coin, value);
     prices.value = next;
@@ -86,9 +88,9 @@ export function useCryptoPricesFeed(coins: Ref<string[]>) {
   }
 
   function connect() {
-    if (!import.meta.client || stopped || coins.value.length === 0) return;
+    if (!import.meta.client || stopped || infos.value.length === 0) return;
     teardown();
-    const current = coins.value.slice();
+    const current = infos.value.slice();
     try {
       ws = new WebSocket("wss://ws-live-data.polymarket.com");
     } catch {
@@ -98,7 +100,7 @@ export function useCryptoPricesFeed(coins: Ref<string[]>) {
     ws.onopen = () => {
       connected.value = true;
       ws?.send(JSON.stringify({ action: "subscribe", subscriptions: subscriptionsFor(current) }));
-      pingTimer = setInterval(() => ws?.readyState === WebSocket.OPEN && ws.send("PING"), 10_000);
+      pingTimer = setInterval(() => ws?.readyState === WebSocket.OPEN && ws.send("PING"), 5_000);
     };
     ws.onmessage = (e) => handleMessage(typeof e.data === "string" ? e.data : "");
     ws.onerror = () => ws?.close();
@@ -110,14 +112,18 @@ export function useCryptoPricesFeed(coins: Ref<string[]>) {
 
   onMounted(() => {
     stopped = false;
-    if (coins.value.length) connect();
+    if (infos.value.length) connect();
   });
 
   watch(
-    () => coins.value.slice().sort().join(","),
+    () =>
+      infos.value
+        .map((info) => `${info.coin}:${info.source}:${info.feedSymbol}:${info.twapWindowSeconds ?? ""}`)
+        .sort()
+        .join(","),
     () => {
       stopped = false;
-      if (coins.value.length) connect();
+      if (infos.value.length) connect();
       else teardown();
     },
   );
