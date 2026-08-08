@@ -32,7 +32,7 @@
     "jdenticon": "^3.3.0",
     "lightweight-charts": "^5.2.0",
     "nprogress": "^0.2.0",
-    "nuxt": "^4.5.1",
+    "nuxt": "^4.5.2",
     "tailwindcss": "^4.3.3",
     "topojson-client": "^3.1.0",
     "vue": "^3.5.41",
