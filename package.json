@@ -45,7 +45,7 @@
     "@iconify-json/simple-icons": "^1.2.92",
     "@types/canvas-confetti": "^1.9.0",
     "@types/d3-array": "^3.2.2",
-    "@types/d3-geo": "^3.1.0",
+    "@types/d3-geo": "^3.1.1",
     "@types/d3-scale": "^4.0.9",
     "@types/d3-shape": "^3.1.8",
     "@types/nprogress": "^0.2.3",
