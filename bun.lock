@@ -29,7 +29,7 @@
       },
       "devDependencies": {
         "@iconify-json/cryptocurrency-color": "^1.2.4",
-        "@iconify-json/lucide": "^1.2.121",
+        "@iconify-json/lucide": "^1.2.123",
         "@iconify-json/mdi": "^1.2.3",
         "@iconify-json/simple-icons": "^1.2.92",
         "@types/canvas-confetti": "^1.9.0",
@@ -370,7 +370,7 @@
 
     "@iconify-json/cryptocurrency-color": ["@iconify-json/cryptocurrency-color@1.2.4", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-8vjIfTAAMg0zo3/CdVWV7YjViY1L/q4TFfjROmqRPCRPhM6iVecW4TzMFS8hxm48S2Ge69SNM1yC8FmHT+jfHw=="],
 
-    "@iconify-json/lucide": ["@iconify-json/lucide@1.2.121", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-zSoQQSmsyFaeTpSwURHJ9PIrsDcGFpDNhGlpiTrs+Ua4uFeH5UsE26L4OEBLrgLWoSK0UO+JhsO8yehSw0403g=="],
+    "@iconify-json/lucide": ["@iconify-json/lucide@1.2.123", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-0CozmpKXEOEEhltrfT2zt+/t1hez67Y+hM2VJWoIcBKdBrb83VYuKf+b5A0QU9HfQm+RNn2GjFWlTOwi+Ss6IA=="],
 
     "@iconify-json/mdi": ["@iconify-json/mdi@1.2.3", "", { "dependencies": { "@iconify/types": "*" } }, "sha512-O3cLwbDOK7NNDf2ihaQOH5F9JglnulNDFV7WprU2dSoZu3h3cWH//h74uQAB87brHmvFVxIOkuBX2sZSzYhScg=="],
 
