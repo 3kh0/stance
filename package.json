@@ -52,7 +52,7 @@
     "@types/topojson-client": "^3.1.5",
     "@vite-pwa/nuxt": "^1.1.1",
     "oxfmt": "^0.61.0",
-    "oxlint": "^1.76.0",
+    "oxlint": "^1.79.0",
     "typescript": "^6.0.3",
     "vue-tsc": "^3.3.8"
   },
