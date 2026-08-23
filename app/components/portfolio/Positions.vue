@@ -15,6 +15,7 @@ interface PositionRow {
   icon?: string;
   eventSlug?: string;
   cost: number;
+  entryFees: number;
   maxPayout: number;
   value: number;
   pnl: number;
@@ -53,6 +54,7 @@ const rows = computed<PositionRow[]>(() => {
         icon: m.icon || p.marketIcon,
         eventSlug: m.eventSlug || p.marketSlug,
         cost: positionCost(p),
+        entryFees: p.entryFees && p.entryFees > 0.005 ? p.entryFees : 0,
         maxPayout: p.shares,
         value: positionCurrentValue(p),
         pnl: positionPnl(p),
@@ -248,6 +250,7 @@ async function confirmExit(shares: number) {
           </div>
           <div class="font-mono whitespace-nowrap text-right text-xs text-text-2" role="cell">
             <NumericOdometer :value="row.cost" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" />
+            <span v-if="row.entryFees > 0" class="block text-[10px] leading-4 text-text-3" title="Entry fees attributed to the shares still held">+<NumericOdometer :value="row.entryFees" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" /> fee</span>
           </div>
           <div class="font-mono whitespace-nowrap text-right text-xs text-text-2" role="cell">
             <NumericOdometer :value="row.maxPayout" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" />

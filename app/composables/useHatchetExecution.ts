@@ -1,7 +1,7 @@
 import type { Outcome, OrderSide } from "~/types/account";
 import confetti from "canvas-confetti";
 import type { Ref } from "vue";
-import type { ClobFeeInfo } from "~/composables/usePolymarket";
+import type { ClobFeeInfo } from "~/types/markets";
 import { clobFeeUsd, limitOrderCost, type TradePreviewSnapshot } from "~/utils/markets";
 
 interface HatchetMarketProps {

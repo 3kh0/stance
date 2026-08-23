@@ -1,5 +1,6 @@
 import type { Outcome } from "~/types/account";
 import type { GammaMarket } from "~/types/gamma";
+import type { ClobFeeInfo } from "~/types/markets";
 import type { LiveMarketQuote } from "~/composables/useClobMarketChannel";
 import { parseClobTokenIds, parseOutcomePrices } from "~/utils/markets";
 
@@ -22,6 +23,20 @@ export function snapDisplayPrice(price: number, market: Pick<GammaMarket, "order
   const tick = marketTickCents(market) / 100;
   const snapped = Math.round(price / tick) * tick;
   return Math.round(Math.min(Math.max(snapped, tick), 1 - tick) * 10_000) / 10_000;
+}
+
+const NO_FEES: ClobFeeInfo = { rate: 0, exponent: 0, takerOnly: true, rebateRate: 0 };
+
+export function marketFeeInfo(market: Pick<GammaMarket, "feeSchedule" | "feesEnabled"> | null | undefined): ClobFeeInfo | null {
+  if (!market) return null;
+  if (market.feesEnabled === false) return NO_FEES;
+  const schedule = market.feeSchedule;
+  if (!schedule) return null;
+  const rate = Number(schedule.rate);
+  const exponent = Number(schedule.exponent);
+  if (!Number.isFinite(rate) || rate < 0 || !Number.isFinite(exponent) || exponent < 0) return null;
+  const rebateRate = Number(schedule.rebateRate);
+  return { rate, exponent, takerOnly: schedule.takerOnly !== false, rebateRate: Number.isFinite(rebateRate) && rebateRate > 0 ? rebateRate : 0 };
 }
 
 function liveSidePrice(market: GammaMarket, side: Outcome, source: LiveQuoteSource): number | null {
@@ -61,6 +76,7 @@ export interface HatchetProps {
   noTokenId?: string;
   negRisk?: boolean;
   tickSize?: number;
+  feeInfo?: ClobFeeInfo | null;
   yesColor?: string;
   noColor?: string;
 }
@@ -102,6 +118,7 @@ export function buildHatchetProps(input: {
     noTokenId: input.tokens[1],
     negRisk: m.negRisk,
     tickSize: m.orderPriceMinTickSize,
+    feeInfo: marketFeeInfo(m),
     yesColor: input.yesColor,
     noColor: input.noColor,
   };

@@ -28,7 +28,7 @@ export function migratePosition(raw: unknown): Position | null {
   if (!raw || typeof raw !== "object") return null;
   const p = raw as Partial<Position> & { marketId?: string; outcome?: Outcome };
   let { positionKey, marketId, outcome } = p;
-  const { marketName, shares, entryPrice, currentPrice, marketSlug, marketIcon, question, tokenId, negRisk } = p;
+  const { marketName, shares, entryPrice, currentPrice, marketSlug, marketIcon, question, tokenId, negRisk, entryFees, grossCost } = p;
 
   if (!positionKey && marketId) positionKey = marketId;
   if (!outcome && positionKey) outcome = positionKey.endsWith("-yes") ? "yes" : positionKey.endsWith("-no") ? "no" : outcome;
@@ -48,6 +48,8 @@ export function migratePosition(raw: unknown): Position | null {
     question: optStr(question),
     tokenId: optStr(tokenId),
     negRisk: typeof negRisk === "boolean" ? negRisk : undefined,
+    entryFees: finite(entryFees) ? entryFees : undefined,
+    grossCost: finite(grossCost) ? grossCost : undefined,
   };
 }
 

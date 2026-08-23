@@ -20,6 +20,8 @@ export const HIDDEN_TAG_REGEX = /hide|^finance$|^equities$|^stocks$|^crypto$|^po
 
 export const SHARE_EPSILON = 1e-6;
 
+export const POLYMARKET_BUILDER_CODE = "0x2cf40c89ed5a622ae2f1f250974d09f7434974b562fa831d04c1c2c804844be9";
+
 export const CATEGORY_TAG_ALIASES: Record<string, string> = {
   culture: "pop-culture",
   mentions: "mention-markets",

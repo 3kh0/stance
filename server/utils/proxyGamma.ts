@@ -51,6 +51,11 @@ export function coercePositiveInt(value: unknown, { min = 0, max = 500 }: Bounds
   return Number.isFinite(n) && n >= min && n <= max ? n : undefined;
 }
 
+export function coerceBool(value: unknown): boolean | undefined {
+  const s = str(value)?.toLowerCase();
+  return s === "true" || s === "1" ? true : s === "false" || s === "0" ? false : undefined;
+}
+
 export function coerceEnum<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
   const s = str(value);
   return allowed.includes(s as T) ? (s as T) : undefined;

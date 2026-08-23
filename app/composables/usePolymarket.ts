@@ -1,10 +1,14 @@
 import { computed } from "vue";
 import type { Account, OrderSide, Outcome, Position, Transaction } from "~/composables/useAccount";
+import type { ClobFeeInfo } from "~/types/markets";
+import { POLYMARKET_BUILDER_CODE } from "~/utils/constants";
 import { positionKey } from "~/utils/markets";
 
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
 
 const clobHost = () => `${typeof window !== "undefined" ? window.location.origin : ""}/api/polymarket/clob`;
+
+export type { ClobFeeInfo } from "~/types/markets";
 
 export type LinkStatus = "idle" | "connecting" | "resolving" | "signing" | "syncing";
 
@@ -46,11 +50,6 @@ export interface LiveOpenOrder {
   created_at: number;
 }
 
-export interface ClobFeeInfo {
-  rate: number;
-  exponent: number;
-}
-
 type TypedDataDomain = Record<string, unknown>;
 type TypedDataTypes = Record<string, Array<{ name: string; type: string }>>;
 type TypedDataValue = Record<string, unknown>;
@@ -89,6 +88,8 @@ interface DataApiPosition {
   size: number;
   avgPrice: number;
   curPrice: number;
+  grossInitialValue?: number;
+  entryFeesUsdc?: number;
   title?: string;
   slug?: string;
   icon?: string;
@@ -119,19 +120,25 @@ interface DataApiActivity {
 const shortAddress = (a: string): string => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const finite = (n: unknown, fallback?: number) => (Number.isFinite(n) ? (n as number) : fallback);
 
+const activityOutcome = (raw: DataApiActivity): Outcome => (raw.outcome?.toLowerCase() === "no" || raw.outcomeIndex === 1 ? "no" : "yes");
+
+function redeemPrice(raw: DataApiActivity): number | undefined {
+  if (!Number.isFinite(raw.size) || !raw.size || !Number.isFinite(raw.usdcSize)) return undefined;
+  return Math.round((raw.usdcSize! / raw.size) * 10_000) / 10_000;
+}
+
 function mapActivity(raw: DataApiActivity, index: number): Transaction | null {
   if (!raw || !Number.isFinite(raw.timestamp)) return null;
   let type: Transaction["type"];
-  let outcome: Outcome | undefined;
-  if (raw.type === "TRADE") {
-    type = raw.side === "SELL" ? "sell" : "buy";
-    outcome = raw.outcome?.toLowerCase() === "no" || raw.outcomeIndex === 1 ? "no" : "yes";
-  } else if (raw.type === "REDEEM") type = "redeem";
+  if (raw.type === "TRADE") type = raw.side === "SELL" ? "sell" : "buy";
+  else if (raw.type === "REDEEM") type = "redeem";
   else return null;
+  const sideless = type === "redeem" && !raw.outcome && raw.outcomeIndex === undefined;
+  const outcome: Outcome | undefined = sideless ? undefined : activityOutcome(raw);
 
   const slug = raw.eventSlug || raw.slug;
   return {
-    id: `pm-${raw.transactionHash ?? "tx"}-${raw.asset || raw.outcomeIndex || index}-${index}`,
+    id: `pm-${raw.transactionHash ?? "tx"}-${raw.asset || raw.conditionId || "market"}-${raw.outcomeIndex ?? "x"}-${index}`,
     type,
     marketId: slug || raw.conditionId,
     marketName: raw.title,
@@ -139,7 +146,7 @@ function mapActivity(raw: DataApiActivity, index: number): Transaction | null {
     question: raw.title,
     outcome,
     shares: finite(raw.size),
-    price: finite(raw.price),
+    price: type === "redeem" ? redeemPrice(raw) : finite(raw.price),
     amount: finite(raw.usdcSize),
     timestamp: raw.timestamp * 1000,
   };
@@ -167,6 +174,8 @@ function mapDataApiPosition(raw: DataApiPosition): Position | null {
     question: raw.title,
     tokenId: raw.asset,
     negRisk: raw.negativeRisk,
+    entryFees: finite(raw.entryFeesUsdc),
+    grossCost: finite(raw.grossInitialValue),
   };
 }
 
@@ -220,7 +229,7 @@ export const usePolymarket = () => {
       creds: linked.creds,
       signatureType: linked.signatureType,
       funderAddress: linked.funder,
-      builderConfig: { builderCode: "0x2cf40c89ed5a622ae2f1f250974d09f7434974b562fa831d04c1c2c804844be9" },
+      builderConfig: { builderCode: POLYMARKET_BUILDER_CODE },
       useServerTime: true,
       throwOnError: true,
     });
@@ -233,7 +242,7 @@ export const usePolymarket = () => {
     try {
       const [balanceRes, positionsRes, activityRes, profileRes] = await Promise.allSettled([
         $fetch<{ balance: number }>("/api/polymarket/balance", { query: { user: linked.funder } }),
-        $fetch<DataApiPosition[]>("/api/polymarket/positions", { query: { user: linked.funder } }),
+        $fetch<DataApiPosition[]>("/api/polymarket/positions", { query: { user: linked.funder, includeArchived: true } }),
         $fetch<DataApiActivity[]>("/api/polymarket/activity", { query: { user: linked.funder, limit: 500 } }),
         $fetch<{ profileImage?: string }>(`${GAMMA_HOST}/public-profile`, { query: { address: linked.address }, timeout: 8000 }),
       ]);
@@ -320,8 +329,8 @@ export const usePolymarket = () => {
   const getFeeInfo = async (conditionId: string): Promise<ClobFeeInfo> => {
     const cached = feeInfoCache.value[conditionId];
     if (cached) return cached;
-    const result = await $fetch<{ fd?: { r?: number; e?: number } }>(`/api/polymarket/clob/clob-markets/${encodeURIComponent(conditionId)}`, { timeout: 8000 });
-    return (feeInfoCache.value[conditionId] = { rate: result?.fd?.r ?? 0, exponent: result?.fd?.e ?? 0 });
+    const result = await $fetch<{ fd?: { r?: number; e?: number; to?: boolean } }>(`/api/polymarket/clob/clob-markets/${encodeURIComponent(conditionId)}`, { timeout: 8000 });
+    return (feeInfoCache.value[conditionId] = { rate: result?.fd?.r ?? 0, exponent: result?.fd?.e ?? 0, takerOnly: result?.fd?.to !== false });
   };
 
   return {

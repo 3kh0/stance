@@ -93,6 +93,15 @@ export function disputeStageMatchesFilter(stage: DisputeStage, filter: DisputeSt
   return stage === filter;
 }
 
+export interface ClobFeeInfo {
+  rate: number;
+  exponent: number;
+  // When false, makers pay the same fee as takers. Defaults to taker-only
+  takerOnly?: boolean;
+  // Share of collected taker fees paid back to makers (0.15 = 15%)
+  rebateRate?: number;
+}
+
 export interface TagItem {
   label: string;
   slug: string;

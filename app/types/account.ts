@@ -20,6 +20,10 @@ export interface Position {
   question?: string;
   tokenId?: string;
   negRisk?: boolean;
+  // BUY fees attributed to the remaining basis (live accounts only).
+  entryFees?: number;
+  // Remaining entry basis including attributed BUY fees (live accounts only)
+  grossCost?: number;
 }
 export interface Transaction {
   id: string;

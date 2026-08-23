@@ -3,6 +3,12 @@ export interface GammaTag {
   label: string;
   slug?: string;
 }
+export interface MarketFeeSchedule {
+  rate?: number;
+  exponent?: number;
+  takerOnly?: boolean;
+  rebateRate?: number;
+}
 export interface GammaMarket {
   id: string;
   question: string;
@@ -35,6 +41,8 @@ export interface GammaMarket {
   bestAsk?: number;
   oneDayPriceChange?: number | string;
   feeType?: string;
+  feesEnabled?: boolean;
+  feeSchedule?: MarketFeeSchedule;
   events?: Array<{ slug?: string }>;
 }
 export interface EventTeam {

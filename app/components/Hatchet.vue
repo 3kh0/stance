@@ -142,10 +142,10 @@
           <span class="text-[11px] text-text-2">{{ orderMode === "limit" ? "Total" : "Amount" }}</span>
           <span class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="orderCost" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" /></span>
         </div>
-        <div v-if="feeUsd > 0 || (orderMode === 'limit' && !feeIsTaker)" class="flex items-center justify-between">
+        <div v-if="feeUsd > 0 || (orderMode === 'limit' && !feeApplies)" class="flex items-center justify-between">
           <span class="text-[11px] text-text-2">Est. fee</span>
           <span v-if="feeUsd > 0" class="font-mono text-xs font-semibold text-text"><NumericOdometer :value="feeUsd" prefix="$" :minimum-fraction-digits="2" :maximum-fraction-digits="2" /></span>
-          <span v-else class="text-[11px] font-semibold text-text-3">No fee (maker)</span>
+          <span v-else class="text-[11px] font-semibold text-text-3">{{ noFeeLabel }}</span>
         </div>
         <div class="flex items-center justify-between">
           <span class="text-[11px] text-text-2">{{ orderType === "buy" ? "To win" : "You'll receive" }}</span>
@@ -250,7 +250,7 @@
 
 <script setup lang="ts">
 import type { Outcome, OrderSide } from "~/types/account";
-import type { ClobFeeInfo } from "~/composables/usePolymarket";
+import type { ClobFeeInfo } from "~/types/markets";
 import { useHatchetExecution } from "~/composables/useHatchetExecution";
 import { SHARE_EPSILON } from "~/utils/constants";
 import { fmts, tickDecimals } from "~/utils/prices";
@@ -276,6 +276,7 @@ interface Props {
   noTokenId?: string;
   negRisk?: boolean;
   tickSize?: number;
+  feeInfo?: ClobFeeInfo | null;
   yesColor?: string;
   noColor?: string;
   embedded?: boolean;
@@ -297,6 +298,7 @@ const props = withDefaults(defineProps<Props>(), {
   noTokenId: undefined,
   negRisk: false,
   tickSize: undefined,
+  feeInfo: null,
   yesColor: undefined,
   noColor: undefined,
   embedded: false,
@@ -446,11 +448,16 @@ const orderCost = computed(() => {
   return orderType.value === "sell" ? calculateMaxSellAmount(shares.value, currentPrice.value) : amount.value;
 });
 
-const feeInfo = ref<ClobFeeInfo>({ rate: 0, exponent: 0 });
+const NO_FEES: ClobFeeInfo = { rate: 0, exponent: 0, takerOnly: true, rebateRate: 0 };
+const feeInfo = ref<ClobFeeInfo>(props.feeInfo ?? NO_FEES);
 watch(
-  () => props.conditionId,
-  async (conditionId) => {
-    feeInfo.value = { rate: 0, exponent: 0 };
+  [() => props.feeInfo, () => props.conditionId],
+  async ([fromMarket, conditionId]) => {
+    if (fromMarket) {
+      feeInfo.value = fromMarket;
+      return;
+    }
+    feeInfo.value = NO_FEES;
     if (!conditionId) return;
     try {
       feeInfo.value = await getFeeInfo(conditionId);
@@ -458,6 +465,8 @@ watch(
   },
   { immediate: true },
 );
+const makerRebatePct = computed(() => (feeInfo.value.rate > 0 ? Math.round((feeInfo.value.rebateRate ?? 0) * 100) : 0));
+const noFeeLabel = computed(() => (makerRebatePct.value > 0 ? `No fee · ${makerRebatePct.value}% maker rebate` : "No fee (maker)"));
 const positionMarketId = computed(() => (isLiveAccount.value ? props.conditionId || "" : props.marketId));
 const userPosition = computed(() => (!positionMarketId.value ? null : account.value.positions.find((p) => p.positionKey === positionKey(positionMarketId.value, selectedOutcome.value))));
 const sellableShares = computed(() => {
@@ -490,7 +499,8 @@ const matchingShares = computed(() => {
 const marketableFillPriceCents = computed(() => (orderType.value === "buy" ? Math.min(props.bestAskCents ?? limitPriceCents.value, limitPriceCents.value) : Math.max(props.bestBidCents ?? limitPriceCents.value, limitPriceCents.value)));
 
 const feeIsTaker = computed(() => (orderMode.value === "market" ? true : isMarketableLimit.value && !postOnly.value));
-const feeUsd = computed(() => (!feeIsTaker.value ? 0 : clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, (orderMode.value === "limit" ? marketableFillPriceCents.value : summaryPriceCents.value) / 100, summaryShares.value)));
+const feeApplies = computed(() => feeIsTaker.value || feeInfo.value.takerOnly === false);
+const feeUsd = computed(() => (!feeApplies.value ? 0 : clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, (orderMode.value === "limit" ? marketableFillPriceCents.value : summaryPriceCents.value) / 100, summaryShares.value)));
 const payoutNumber = computed(() => (orderType.value === "buy" ? summaryShares.value : Math.max(orderCost.value - feeUsd.value, 0)));
 
 const orderError = computed<string | null>(() => {
@@ -573,10 +583,10 @@ function setMaxLimitShares() {
   }
   const price = limitPriceCents.value / 100;
   if (price <= 0) return;
-  const taker = isMarketableLimit.value && !postOnly.value;
-  const perShareFee = taker ? clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, price, 100) / 100 : 0;
+  const charged = feeApplies.value;
+  const perShareFee = charged ? clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, price, 100) / 100 : 0;
   let max = Math.floor((account.value.balance / (price + perShareFee)) * 100) / 100;
-  if (limitOrderCost(limitPriceCents.value, max) + (taker ? clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, price, max) : 0) > account.value.balance) max = Math.max(max - 0.01, 0);
+  if (limitOrderCost(limitPriceCents.value, max) + (charged ? clobFeeUsd(feeInfo.value.rate, feeInfo.value.exponent, price, max) : 0) > account.value.balance) max = Math.max(max - 0.01, 0);
   limitShares.value = max;
 }
 
