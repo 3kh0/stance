@@ -1,5 +1,6 @@
 import { computed } from "vue";
 import type { Account, OrderSide, Outcome, Position, Transaction } from "~/composables/useAccount";
+import type { DataApiActivity, DataApiPage, DataApiPosition } from "~/types/dataApi";
 import type { ClobFeeInfo } from "~/types/markets";
 import { POLYMARKET_BUILDER_CODE } from "~/utils/constants";
 import { positionKey } from "~/utils/markets";
@@ -78,53 +79,19 @@ function clobOrderOptions(tickSize?: number, negRisk?: boolean): { tickSize?: Ti
   return { negRisk: !!negRisk, ...(tick && ALLOWED_TICKS.includes(tick) ? { tickSize: tick } : {}) };
 }
 
-function throwIfError(response: { error?: unknown } | null | undefined, fallback: string) {
-  if (response?.error) throw new Error(typeof response.error === "string" ? response.error : fallback);
-}
-
-interface DataApiPosition {
-  asset: string;
-  conditionId: string;
-  size: number;
-  avgPrice: number;
-  curPrice: number;
-  grossInitialValue?: number;
-  entryFeesUsdc?: number;
-  title?: string;
-  slug?: string;
-  icon?: string;
-  eventSlug?: string;
-  outcome?: string;
-  outcomeIndex?: number;
-  negativeRisk?: boolean;
-}
-
-interface DataApiActivity {
-  type: "TRADE" | "REDEEM" | "SPLIT" | "MERGE" | "CONVERSION" | "REWARD";
-  side?: "BUY" | "SELL" | "";
-  timestamp: number;
-  conditionId?: string;
-  transactionHash?: string;
-  size?: number;
-  usdcSize?: number;
-  price?: number;
-  outcome?: string;
-  outcomeIndex?: number;
-  title?: string;
-  slug?: string;
-  eventSlug?: string;
-  icon?: string;
-  asset?: string;
+function throwIfError(response: unknown, fallback: string) {
+  if (!response || typeof response !== "object" || !("error" in response) || !response.error) return;
+  throw new Error(typeof response.error === "string" ? response.error : fallback);
 }
 
 const shortAddress = (a: string): string => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const finite = (n: unknown, fallback?: number) => (Number.isFinite(n) ? (n as number) : fallback);
 
-const activityOutcome = (raw: DataApiActivity): Outcome => (raw.outcome?.toLowerCase() === "no" || raw.outcomeIndex === 1 ? "no" : "yes");
+const activityOutcome = (raw: DataApiActivity): Outcome => (raw.outcome?.toLowerCase() === "no" || raw.outcome_index === 1 ? "no" : "yes");
 
 function redeemPrice(raw: DataApiActivity): number | undefined {
-  if (!Number.isFinite(raw.size) || !raw.size || !Number.isFinite(raw.usdcSize)) return undefined;
-  return Math.round((raw.usdcSize! / raw.size) * 10_000) / 10_000;
+  if (!Number.isFinite(raw.size) || !raw.size || !Number.isFinite(raw.usdc_size)) return undefined;
+  return Math.round((raw.usdc_size! / raw.size) * 10_000) / 10_000;
 }
 
 function mapActivity(raw: DataApiActivity, index: number): Transaction | null {
@@ -133,21 +100,21 @@ function mapActivity(raw: DataApiActivity, index: number): Transaction | null {
   if (raw.type === "TRADE") type = raw.side === "SELL" ? "sell" : "buy";
   else if (raw.type === "REDEEM") type = "redeem";
   else return null;
-  const sideless = type === "redeem" && !raw.outcome && raw.outcomeIndex === undefined;
+  const sideless = type === "redeem" && !raw.outcome && raw.outcome_index === undefined;
   const outcome: Outcome | undefined = sideless ? undefined : activityOutcome(raw);
 
-  const slug = raw.eventSlug || raw.slug;
+  const slug = raw.event_slug || raw.slug;
   return {
-    id: `pm-${raw.transactionHash ?? "tx"}-${raw.asset || raw.conditionId || "market"}-${raw.outcomeIndex ?? "x"}-${index}`,
+    id: `pm-${raw.transaction_hash ?? "tx"}-${raw.token_id || raw.condition_id || "market"}-${raw.outcome_index ?? "x"}-${index}`,
     type,
-    marketId: slug || raw.conditionId,
+    marketId: slug || raw.condition_id,
     marketName: raw.title,
     marketIcon: raw.icon,
     question: raw.title,
     outcome,
     shares: finite(raw.size),
     price: type === "redeem" ? redeemPrice(raw) : finite(raw.price),
-    amount: finite(raw.usdcSize),
+    amount: finite(raw.usdc_size),
     timestamp: raw.timestamp * 1000,
   };
 }
@@ -155,27 +122,27 @@ function mapActivity(raw: DataApiActivity, index: number): Transaction | null {
 function dataApiOutcomeToSide(p: DataApiPosition): Outcome {
   const label = p.outcome?.toLowerCase();
   if (label === "yes" || label === "no") return label;
-  return p.outcomeIndex === 1 ? "no" : "yes";
+  return p.outcome_index === 1 ? "no" : "yes";
 }
 
 function mapDataApiPosition(raw: DataApiPosition): Position | null {
-  if (!raw?.conditionId || !Number.isFinite(raw.size) || raw.size <= 0) return null;
+  if (!raw?.condition_id || !Number.isFinite(raw.current_size) || raw.current_size <= 0) return null;
   const outcome = dataApiOutcomeToSide(raw);
   return {
-    positionKey: positionKey(raw.conditionId, outcome),
-    marketId: raw.conditionId,
+    positionKey: positionKey(raw.condition_id, outcome),
+    marketId: raw.condition_id,
     outcome,
     marketName: `${raw.title || "Market"} - ${outcome === "yes" ? "Yes" : "No"}`,
-    shares: raw.size,
-    entryPrice: finite(raw.avgPrice, 0)!,
-    currentPrice: finite(raw.curPrice, 0)!,
-    marketSlug: raw.eventSlug || raw.slug,
+    shares: raw.current_size,
+    entryPrice: finite(raw.avg_price, 0)!,
+    currentPrice: finite(raw.current_price, 0)!,
+    marketSlug: raw.event_slug || raw.slug,
     marketIcon: raw.icon,
     question: raw.title,
-    tokenId: raw.asset,
-    negRisk: raw.negativeRisk,
-    entryFees: finite(raw.entryFeesUsdc),
-    grossCost: finite(raw.grossInitialValue),
+    tokenId: raw.token_id,
+    negRisk: raw.negative_risk,
+    entryFees: finite(raw.entry_fees_usdc),
+    grossCost: finite(raw.total_cost_usdc),
   };
 }
 
@@ -242,16 +209,16 @@ export const usePolymarket = () => {
     try {
       const [balanceRes, positionsRes, activityRes, profileRes] = await Promise.allSettled([
         $fetch<{ balance: number }>("/api/polymarket/balance", { query: { user: linked.funder } }),
-        $fetch<DataApiPosition[]>("/api/polymarket/positions", { query: { user: linked.funder, includeArchived: true } }),
-        $fetch<DataApiActivity[]>("/api/polymarket/activity", { query: { user: linked.funder, limit: 500 } }),
+        $fetch<DataApiPage<DataApiPosition>>("/api/polymarket/positions", { query: { user: linked.funder, includeArchived: true } }),
+        $fetch<DataApiPage<DataApiActivity>>("/api/polymarket/activity", { query: { user: linked.funder, limit: 500 } }),
         $fetch<{ profileImage?: string }>(`${GAMMA_HOST}/public-profile`, { query: { address: linked.address }, timeout: 8000 }),
       ]);
       if (balanceRes.status === "fulfilled" && Number.isFinite(balanceRes.value?.balance)) saveAccount({ balance: Math.round(balanceRes.value.balance * 100) / 100 });
       if (profileRes.status === "fulfilled" && profileRes.value?.profileImage && profileRes.value.profileImage !== linked.image) updateWallet({ image: profileRes.value.profileImage });
-      if (positionsRes.status === "fulfilled" && Array.isArray(positionsRes.value)) replacePositions(positionsRes.value.map(mapDataApiPosition).filter((p): p is Position => p !== null));
-      if (activityRes.status === "fulfilled" && Array.isArray(activityRes.value)) {
+      if (positionsRes.status === "fulfilled" && Array.isArray(positionsRes.value.data)) replacePositions(positionsRes.value.data.map(mapDataApiPosition).filter((p): p is Position => p !== null));
+      if (activityRes.status === "fulfilled" && Array.isArray(activityRes.value.data)) {
         replaceTransactions(
-          activityRes.value
+          activityRes.value.data
             .map(mapActivity)
             .filter((t): t is Transaction => t !== null)
             .reverse(),

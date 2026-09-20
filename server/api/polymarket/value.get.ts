@@ -1,3 +1,3 @@
 export default defineEventHandler(async (event) => {
-  return await proxyUpstream(DATA_API_BASE_URL, "/value", { user: requireAddress(getQuery(event).user) });
+  return await proxyUpstream(DATA_API_BASE_URL, "/v2/value", { user: requireAddress(getQuery(event).user) });
 });
