@@ -78,8 +78,11 @@ function clobOrderOptions(tickSize?: number, negRisk?: boolean): { tickSize?: Ti
   return { negRisk: !!negRisk, ...(tick && ALLOWED_TICKS.includes(tick) ? { tickSize: tick } : {}) };
 }
 
-function throwIfError(response: { error?: unknown } | null | undefined, fallback: string) {
-  if (response?.error) throw new Error(typeof response.error === "string" ? response.error : fallback);
+function throwIfError(response: { error?: unknown; success?: boolean; errorMsg?: unknown } | null | undefined, fallback: string) {
+  if (response?.error || response?.success === false) {
+    const error = response.error || response.errorMsg;
+    throw new Error(typeof error === "string" && error ? error : fallback);
+  }
 }
 
 interface DataApiPosition {
