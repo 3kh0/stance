@@ -1,3 +1,5 @@
+import type { DataApiActivity, DataApiComboPosition, DataApiEnvelope, DataApiPage, DataApiPortfolioValue, DataApiPosition } from "~/types/dataApi";
+
 interface ProfileSearchResult {
   name?: string;
   pseudonym?: string;
@@ -66,24 +68,8 @@ interface ProfileActivity {
   };
 }
 
-interface ComboPosition {
-  combo_condition_id?: string;
-  legs_total?: number;
-  legs?: Array<{
-    leg_outcome_label?: string;
-    market?: {
-      icon_url?: string;
-      image_url?: string;
-      event?: { event_image?: string };
-    };
-  }>;
-}
-
-interface ComboPositionsResponse {
-  combos?: ComboPosition[];
-}
-
 const ok = <T>(r: PromiseSettledResult<T>, fb: T): T => (r.status === "fulfilled" ? r.value : fb);
+const emptyPage = <T>(): DataApiPage<T> => ({ data: [], pagination: { limit: 0, offset: 0, has_more: false, next_cursor: null } });
 
 function requireProfileIdentifier(value: string | undefined): string {
   const identifier = decodeURIComponent(value ?? "")
@@ -118,18 +104,51 @@ export default defineEventHandler(async (event) => {
 
   const [userDataR, valueR, positionsR, activityR] = await Promise.allSettled([
     proxyImpit<ProfileUserData | null>(POLYMARKET_BASE_URL, "/api/profile/userData", { address: wallet }),
-    proxyUpstream<Array<{ user?: string; value?: number }>>(DATA_API_BASE_URL, "/value", { user: wallet }),
-    proxyUpstream<ProfilePosition[]>(DATA_API_BASE_URL, "/positions", { user: wallet, sizeThreshold: 0.1, limit: 100, sortBy: "CURRENT", sortDirection: "DESC" }),
-    proxyUpstream<ProfileActivity[]>(DATA_API_BASE_URL, "/activity", { user: wallet, limit: 100, offset: 0, sortBy: "TIMESTAMP", sortDirection: "DESC" }),
+    proxyUpstream<DataApiEnvelope<DataApiPortfolioValue>>(DATA_API_BASE_URL, "/v2/value", { user: wallet }),
+    proxyUpstream<DataApiPage<DataApiPosition>>(DATA_API_BASE_URL, "/v2/positions", { user: wallet, filter_type: "TOKENS", filter_amount: 0.1, limit: 100, sort_by: "CURRENT_VALUE", sort_direction: "DESC" }),
+    proxyUpstream<DataApiPage<DataApiActivity>>(DATA_API_BASE_URL, "/v2/activity", { user: wallet, limit: 100, sort_by: "TIMESTAMP", sort_direction: "DESC" }),
   ]);
 
   const userData = ok(userDataR, null);
-  const positions = ok(positionsR, []);
-  const activity = ok(activityR, []);
-  const comboConditionIds = [...new Set(activity.filter((item) => item.isCombo && item.conditionId).map((item) => item.conditionId!))];
+  const positions = ok(positionsR, emptyPage<DataApiPosition>()).data.map<ProfilePosition>((position) => ({
+    asset: position.token_id,
+    conditionId: position.condition_id,
+    size: position.current_size,
+    avgPrice: position.avg_price,
+    initialValue: position.entry_cost_usdc,
+    currentValue: position.current_value,
+    cashPnl: position.unrealized_pnl,
+    percentPnl: position.percent_pnl,
+    curPrice: position.current_price,
+    title: position.title,
+    slug: position.slug,
+    icon: position.icon,
+    eventSlug: position.event_slug,
+    outcome: position.outcome,
+    endDate: position.end_date,
+  }));
+  const rawActivity = ok(activityR, emptyPage<DataApiActivity>()).data;
+  const activity = rawActivity.map<ProfileActivity>((item) => ({
+    timestamp: item.timestamp,
+    conditionId: item.condition_id,
+    type: item.type,
+    side: item.side,
+    size: item.size,
+    usdcSize: item.usdc_size,
+    price: item.price,
+    title: item.title,
+    slug: item.slug,
+    icon: item.icon,
+    eventSlug: item.event_slug,
+    outcome: item.outcome,
+    transactionHash: item.transaction_hash,
+    isCombo: item.is_combo,
+  }));
+  const comboConditionIds = [...new Set(rawActivity.filter((item) => item.is_combo && item.condition_id).map((item) => item.condition_id!))];
   if (comboConditionIds.length) {
-    const combosR = await Promise.allSettled([proxyUpstream<ComboPositionsResponse>(DATA_API_BASE_URL, "/v1/positions/combos", { user: wallet, market_id: comboConditionIds.join(","), limit: comboConditionIds.length })]);
-    const combos = ok<ComboPositionsResponse>(combosR[0], {}).combos ?? [];
+    const conditionChunks = Array.from({ length: Math.ceil(comboConditionIds.length / 20) }, (_, i) => comboConditionIds.slice(i * 20, i * 20 + 20));
+    const comboPages = await Promise.allSettled(conditionChunks.map((conditionIds) => proxyUpstream<DataApiPage<DataApiComboPosition>>(DATA_API_BASE_URL, "/v2/positions/combos", { user: wallet, condition: conditionIds.join(","), limit: 100 })));
+    const combos = comboPages.flatMap((page) => ok(page, emptyPage<DataApiComboPosition>()).data);
     const comboByConditionId = new Map(combos.map((combo) => [combo.combo_condition_id, combo]));
     for (const item of activity) {
       if (!item.isCombo || !item.conditionId) continue;
@@ -143,7 +162,8 @@ export default defineEventHandler(async (event) => {
       };
     }
   }
-  const value = ok(valueR, [])[0]?.value ?? positions.reduce((t, p) => t + (Number(p.currentValue) || 0), 0);
+  const value = ok(valueR, { data: { proxy_wallet: wallet, value: Number.NaN } }).data.value;
+  const positionsValue = Number.isFinite(value) ? value : positions.reduce((t, p) => t + (Number(p.currentValue) || 0), 0);
 
   return {
     profile: {
@@ -161,7 +181,7 @@ export default defineEventHandler(async (event) => {
       takerTierName: userData?.takerTierName,
     },
     stats: {
-      positionsValue: value,
+      positionsValue,
       openPnl: positions.reduce((t, p) => t + (Number(p.cashPnl) || 0), 0),
       largestOpenWin: positions.reduce((m, p) => Math.max(m, Number(p.cashPnl) || 0), 0),
       positions: positions.length,

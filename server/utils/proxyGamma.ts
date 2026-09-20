@@ -56,6 +56,11 @@ export function coerceBool(value: unknown): boolean | undefined {
   return s === "true" || s === "1" ? true : s === "false" || s === "0" ? false : undefined;
 }
 
+export function coerceCursor(value: unknown): string | undefined {
+  const s = str(value);
+  return s && /^[A-Za-z0-9_-]{1,4096}$/.test(s) ? s : undefined;
+}
+
 export function coerceEnum<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
   const s = str(value);
   return allowed.includes(s as T) ? (s as T) : undefined;
