@@ -1,12 +1,13 @@
 export default defineEventHandler(async (event) => {
   const q = getQuery(event);
-  return await proxyUpstream(DATA_API_BASE_URL, "/positions", {
+  return await proxyUpstream(DATA_API_BASE_URL, "/v2/positions", {
     user: requireAddress(q.user),
-    sizeThreshold: 0.1,
-    limit: coercePositiveInt(q.limit, { min: 1, max: 500 }) ?? 100,
-    offset: coercePositiveInt(q.offset, { min: 0, max: 10_000 }) ?? 0,
-    includeArchived: coerceBool(q.includeArchived) ?? false,
-    sortBy: "CURRENT",
-    sortDirection: "DESC",
+    limit: coercePositiveInt(q.limit, { min: 1, max: 1000 }) ?? 100,
+    cursor: coerceCursor(q.cursor),
+    filter_type: "TOKENS",
+    filter_amount: 0.1,
+    include_archived: coerceBool(q.includeArchived) ?? false,
+    sort_by: "CURRENT_VALUE",
+    sort_direction: "DESC",
   });
 });
